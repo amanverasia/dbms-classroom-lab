@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07111f">
+  <meta name="theme-color" content="#faf8f3">
   <title>DBMS Classroom · Unit 1</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#why/college-problem" aria-label="Start of Unit 1"><span class="brand-mark">DB</span><span><strong>DBMS Classroom</strong><small>Database Administration & Security</small></span></a>
+    <a class="brand" href="#why/college-problem" aria-label="Start of Unit 1"><span class="brand-mark" aria-hidden="true">db.</span><span><strong>DBMS Classroom</strong><small>Database Administration & Security</small></span></a>
     <div class="top-actions">
       <span id="health" class="connection">Checking MariaDB…</span>
       <button id="workspaceButton">SQL workspace</button>
@@ -19,8 +19,8 @@
     </div>
   </header>
   <aside class="sidebar">
-    <button id="courseButton" class="course-switch"><span class="eyebrow">COURSE CONTENTS</span><strong>Unit 1 · Fundamentals <span>⌄</span></strong></button>
-    <p class="sidebar-label">9 SECTIONS · 10 TEACHING HOURS</p>
+    <button id="courseButton" class="course-switch"><span class="eyebrow">Course contents</span><strong>Unit 1 · Fundamentals <span>⌄</span></strong></button>
+    <p class="sidebar-label">9 sections · 10 teaching hours</p>
     <nav id="sectionNav" aria-label="Unit 1 sections"></nav>
     <div class="sidebar-bottom"><p id="savedLabel">Your place saves automatically</p><div class="progress-track"><span id="unitProgress"></span></div><small id="unitCount"></small><p class="shortcut"><kbd>←</kbd> <kbd>→</kbd> Move between teaching steps</p></div>
   </aside>
@@ -34,10 +34,10 @@
     <div class="footer-left"><button id="notesButton" aria-expanded="false">Teacher notes</button><button id="exitPresent" hidden>Exit presentation</button><span id="footerLabel"></span></div>
     <div class="footer-nav"><button id="prevButton">← Previous</button><button id="nextButton" class="primary">Next →</button></div>
   </footer>
-  <dialog id="notesDialog"><div class="dialog-heading"><p class="eyebrow">TEACHER NOTES · VISIBLE ON THIS SCREEN</p><button data-close="notesDialog" aria-label="Close teacher notes">×</button></div><h2 id="notesTitle"></h2><p id="notesText"></p><p class="note">Close this panel before returning attention to the projected lesson.</p></dialog>
-  <dialog id="courseDialog"><div class="dialog-heading"><p class="eyebrow">THE COMPLETE COURSE</p><button data-close="courseDialog" aria-label="Close course contents">×</button></div><h2>One familiar console.<br>Four units.</h2><div id="unitList"></div><p class="note">Unit 1 is available. Units 2–4 are planned in roadmap.md.</p></dialog>
-  <dialog id="workspaceDialog" class="workspace-dialog"><div class="dialog-heading"><p class="eyebrow">REAL MARIADB · SQL WORKSPACE</p><button data-close="workspaceDialog" aria-label="Close SQL workspace">×</button></div><h2>Try a question of your own.</h2><p class="note">Choose the default database for this request. Each run uses a fresh connection. Use Adminer for multi-statement scripts and persistent-session exercises.</p><div id="workspaceMount"></div></dialog>
-  <dialog id="resetDialog"><div class="dialog-heading"><p class="eyebrow">REPEAT THE PRACTICAL</p><button data-close="resetDialog" aria-label="Cancel reset">×</button></div><h2>Reset lab_students?</h2><p>This removes only <code>classroom_practice.lab_students</code> and its rows. The next CREATE TABLE example will work from a clean start. Other tables and the college dataset stay as they are.</p><div class="dialog-actions"><button data-close="resetDialog">Cancel</button><button id="confirmReset" class="danger">Reset lab_students</button></div></dialog>
+  <dialog id="notesDialog"><div class="dialog-heading"><p class="eyebrow">Teacher notes · visible on this screen</p><button data-close="notesDialog" aria-label="Close teacher notes">×</button></div><h2 id="notesTitle"></h2><p id="notesText"></p><p class="note">Close this panel before returning attention to the projected lesson.</p></dialog>
+  <dialog id="courseDialog"><div class="dialog-heading"><p class="eyebrow">Course contents</p><button data-close="courseDialog" aria-label="Close course contents">×</button></div><h2>Database Administration<br>&amp; Security</h2><div id="unitList"></div><p class="note">Unit 1 is available. Units 2–4 are planned in roadmap.md.</p></dialog>
+  <dialog id="workspaceDialog" class="workspace-dialog"><div class="dialog-heading"><p class="eyebrow">SQL workspace · MariaDB</p><button data-close="workspaceDialog" aria-label="Close SQL workspace">×</button></div><h2>SQL workspace</h2><p class="note">Choose the default database for this request. Each run uses a fresh connection. Use Adminer for multi-statement scripts and persistent-session exercises.</p><div id="workspaceMount"></div></dialog>
+  <dialog id="resetDialog"><div class="dialog-heading"><p class="eyebrow">Repeat the practical</p><button data-close="resetDialog" aria-label="Cancel reset">×</button></div><h2>Reset lab_students?</h2><p>This removes only <code>classroom_practice.lab_students</code> and its rows. The next CREATE TABLE example will work from a clean start. Other tables and the college dataset stay as they are.</p><div class="dialog-actions"><button data-close="resetDialog">Cancel</button><button id="confirmReset" class="danger">Reset lab_students</button></div></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
   <script src="lessons.js"></script>
   <script src="app.js"></script>
