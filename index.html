@@ -1,237 +1,45 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#07111f" />
-    <title>DBMS Classroom Lab</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark">DB</span>
-          <div>
-            <strong>DBMS Classroom Lab</strong>
-            <span>College database · ready to teach</span>
-          </div>
-        </div>
-        <div class="top-actions">
-          <span class="live-pill"><i></i> DEMO READY</span>
-          <button class="ghost-button" id="resetButton" type="button">Reset data</button>
-          <button class="primary-button" id="presentButton" type="button">Present</button>
-        </div>
-      </header>
-
-      <aside class="sidebar">
-        <p class="eyebrow">FIRST LECTURE</p>
-        <nav aria-label="Lesson sections">
-          <button class="nav-item active" data-section="overview" type="button"><span>01</span> Why a DBMS?</button>
-          <button class="nav-item" data-section="tables" type="button"><span>02</span> Tables & keys</button>
-          <button class="nav-item" data-section="queries" type="button"><span>03</span> Run SQL</button>
-          <button class="nav-item" data-section="relationships" type="button"><span>04</span> Relationships</button>
-          <button class="nav-item" data-section="security" type="button"><span>05</span> Security teaser</button>
-        </nav>
-
-        <div class="lesson-card">
-          <p class="eyebrow">TODAY'S OUTCOME</p>
-          <p>Students leave knowing that a DBMS stores, connects, controls and protects data.</p>
-          <div class="lesson-progress"><span id="lessonProgress"></span></div>
-          <small id="progressLabel">Step 1 of 5</small>
-        </div>
-
-        <div class="key-hint">
-          <kbd>←</kbd><kbd>→</kbd>
-          <span>Move through the lesson</span>
-        </div>
-      </aside>
-
-      <main class="main-stage">
-        <section class="panel active" id="overview" data-index="0">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow mint">START WITH THE PROBLEM</p>
-              <h1>Storing data is easy.<br /><em>Managing it correctly</em> is hard.</h1>
-              <p class="lede">A college has 5,000 students, courses, marks, fees and attendance. What breaks if all of it lives in one spreadsheet?</p>
-            </div>
-            <div class="prompt-card">
-              <span>ASK THE ROOM</span>
-              <p>“What could go wrong if three people edit the same student file at once?”</p>
-            </div>
-          </div>
-
-          <div class="problem-grid">
-            <article><span>01</span><strong>Duplicates</strong><p>The same student appears many times.</p></article>
-            <article><span>02</span><strong>Inconsistency</strong><p>Two files disagree about the truth.</p></article>
-            <article><span>03</span><strong>Access</strong><p>Everyone can see or change everything.</p></article>
-            <article><span>04</span><strong>Recovery</strong><p>One deletion can destroy the record.</p></article>
-          </div>
-
-          <div class="architecture-card">
-            <div class="architecture-label">THE MENTAL MODEL</div>
-            <div class="architecture-flow">
-              <div class="architecture-node"><span>👤</span><strong>User / App</strong><small>asks for data</small></div>
-              <div class="flow-arrow">→<small>SQL</small></div>
-              <div class="architecture-node featured"><span>⚙</span><strong>DBMS</strong><small>manages the rules</small></div>
-              <div class="flow-arrow">→<small>reads & writes</small></div>
-              <div class="architecture-node"><span>▦</span><strong>Database</strong><small>organized data</small></div>
-              <div class="flow-arrow">→</div>
-              <div class="architecture-node"><span>◉</span><strong>Disk</strong><small>physical storage</small></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" id="tables" data-index="1">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow mint">DATABASE: COLLEGE_DEMO</p>
-              <h2>Tables give data a predictable shape.</h2>
-              <p class="lede">Switch tables, then point out rows, columns, data types and keys.</p>
-            </div>
-            <div class="table-tabs" role="tablist">
-              <button class="table-tab active" data-table="students" type="button">students</button>
-              <button class="table-tab" data-table="courses" type="button">courses</button>
-              <button class="table-tab" data-table="enrollments" type="button">enrollments</button>
-            </div>
-          </div>
-
-          <div class="table-layout">
-            <div class="data-card">
-              <div class="data-card-header">
-                <div><span class="table-icon">▦</span><strong id="tableTitle">students</strong><small id="rowCount">5 rows</small></div>
-                <div class="legend"><span><i class="pk-dot"></i> Primary key</span><span><i class="fk-dot"></i> Foreign key</span></div>
-              </div>
-              <div class="table-scroll" id="tableMount"></div>
-            </div>
-            <aside class="concept-rail">
-              <article><span class="concept-symbol">▥</span><div><strong>Table</strong><p>A named collection of related records.</p></div></article>
-              <article><span class="concept-symbol">↔</span><div><strong>Row / record</strong><p>One real-world item — one student.</p></div></article>
-              <article><span class="concept-symbol">↕</span><div><strong>Column / attribute</strong><p>One property shared by every row.</p></div></article>
-              <article class="accent"><span class="concept-symbol">⌁</span><div><strong>Key</strong><p>An ID that identifies or connects records.</p></div></article>
-            </aside>
-          </div>
-        </section>
-
-        <section class="panel" id="queries" data-index="2">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow mint">LIVE SQL CONSOLE</p>
-              <h2>Ask a question. Get a precise answer.</h2>
-              <p class="lede">Use a ready-made example or type one of your own.</p>
-            </div>
-            <span class="connection-pill">● college_demo · connected</span>
-          </div>
-
-          <div class="query-layout">
-            <div class="query-workbench">
-              <div class="editor-toolbar"><span>query.sql</span><span>MariaDB</span></div>
-              <div class="editor-wrap">
-                <div class="line-numbers" id="lineNumbers">1</div>
-                <textarea id="sqlEditor" spellcheck="false" aria-label="SQL query">SELECT * FROM students;</textarea>
-              </div>
-              <div class="editor-actions">
-                <span>Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run</span>
-                <button class="run-button" id="runQuery" type="button">▶ Run query</button>
-              </div>
-              <div class="result-area">
-                <div class="result-status"><strong id="resultTitle">Result</strong><span id="resultMeta">5 rows · 0.004s</span></div>
-                <div class="table-scroll" id="resultMount"></div>
-                <p class="query-explanation" id="queryExplanation">Every row and every column from the students table.</p>
-              </div>
-            </div>
-
-            <aside class="preset-panel">
-              <p class="eyebrow">ONE-CLICK EXAMPLES</p>
-              <button class="preset active" data-query="SELECT * FROM students;" type="button"><span>See all students</span><code>SELECT *</code></button>
-              <button class="preset" data-query="SELECT name, age FROM students;" type="button"><span>Choose columns</span><code>name, age</code></button>
-              <button class="preset" data-query="SELECT * FROM students WHERE age &gt; 20;" type="button"><span>Filter rows</span><code>WHERE age &gt; 20</code></button>
-              <button class="preset" data-query="SELECT s.name, c.course_name FROM students s JOIN courses c ON s.course_id = c.id;" type="button"><span>Connect tables</span><code>JOIN</code></button>
-              <button class="preset" data-query="SELECT c.course_name, COUNT(*) AS students FROM students s JOIN courses c ON s.course_id = c.id GROUP BY c.course_name;" type="button"><span>Count by course</span><code>GROUP BY</code></button>
-              <div class="teaching-note"><strong>Teaching move</strong><p>Ask students to predict the result before you press Run.</p></div>
-            </aside>
-          </div>
-        </section>
-
-        <section class="panel" id="relationships" data-index="3">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow mint">ONE COURSE · MANY STUDENTS</p>
-              <h2>Keys connect facts without repeating them.</h2>
-              <p class="lede">Click a course to trace its ID across the relationship.</p>
-            </div>
-            <button class="primary-button small" id="showJoinButton" type="button">Show joined result</button>
-          </div>
-
-          <div class="relation-canvas">
-            <div class="entity-card" id="studentsEntity">
-              <div class="entity-title"><span>▦</span><strong>students</strong></div>
-              <div class="entity-field"><span class="badge pk">PK</span><code>id</code><small>INT</small></div>
-              <div class="entity-field"><span></span><code>name</code><small>VARCHAR</small></div>
-              <div class="entity-field selected-field"><span class="badge fk">FK</span><code>course_id</code><small>INT</small></div>
-            </div>
-            <div class="relation-line"><span>many</span><i></i><b>∞</b><i></i><b>1</b><span>one</span></div>
-            <div class="entity-card" id="coursesEntity">
-              <div class="entity-title"><span>▦</span><strong>courses</strong></div>
-              <div class="entity-field selected-field"><span class="badge pk">PK</span><code>id</code><small>INT</small></div>
-              <div class="entity-field"><span></span><code>course_name</code><small>VARCHAR</small></div>
-              <div class="entity-field"><span></span><code>duration_months</code><small>INT</small></div>
-            </div>
-          </div>
-
-          <div class="relationship-demo">
-            <div class="course-picker" id="coursePicker"></div>
-            <div class="relation-result" id="relationResult"></div>
-          </div>
-        </section>
-
-        <section class="panel" id="security" data-index="4">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow mint">SECURITY TEASER</p>
-              <h2>Should a website connect as <code>root</code>?</h2>
-              <p class="lede">Same database, different people, different permissions.</p>
-            </div>
-            <div class="prompt-card mini"><span>ASK THE ROOM</span><p>Who should be able to delete all student records?</p></div>
-          </div>
-
-          <div class="persona-grid">
-            <article class="persona danger">
-              <div class="persona-top"><span>⚠</span><div><strong>root</strong><small>Database administrator</small></div></div>
-              <div class="permission all">ALL PRIVILEGES</div>
-              <ul><li>Read data</li><li>Add & change data</li><li>Delete tables</li><li>Create users</li></ul>
-              <p>Powerful — never the website account.</p>
-            </article>
-            <article class="persona safe">
-              <div class="persona-top"><span>◆</span><div><strong>web_app</strong><small>Application account</small></div></div>
-              <div class="permission">SELECT · INSERT · UPDATE</div>
-              <ul><li>Read required data</li><li>Create records</li><li>Update records</li><li class="denied">Cannot drop tables</li></ul>
-              <p>Only the permissions the app needs.</p>
-            </article>
-            <article class="persona neutral">
-              <div class="persona-top"><span>◎</span><div><strong>reporting</strong><small>Analyst account</small></div></div>
-              <div class="permission">SELECT ONLY</div>
-              <ul><li>Read approved data</li><li>Build reports</li><li class="denied">Cannot change data</li><li class="denied">Cannot delete data</li></ul>
-              <p>Useful access, limited risk.</p>
-            </article>
-          </div>
-
-          <div class="security-footer">
-            <div><span class="big-quote">“</span><p>The rule is <strong>least privilege</strong>: give each account only what it needs, and nothing more.</p></div>
-            <code>GRANT SELECT ON college_demo.* TO 'reporting'@'localhost';</code>
-          </div>
-        </section>
-
-        <footer class="stage-footer">
-          <span id="stageLabel">01 / WHY A DBMS?</span>
-          <div>
-            <button id="prevButton" type="button" disabled>← Previous</button>
-            <button id="nextButton" type="button">Next: Tables & keys →</button>
-          </div>
-        </footer>
-      </main>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>DBMS Classroom · Unit 1</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#why/college-problem" aria-label="Start of Unit 1"><span class="brand-mark">DB</span><span><strong>DBMS Classroom</strong><small>Database Administration & Security</small></span></a>
+    <div class="top-actions">
+      <span id="health" class="connection">Checking MariaDB…</span>
+      <button id="workspaceButton">SQL workspace</button>
+      <a class="button" href="http://localhost:8081" target="_blank" rel="noopener">Adminer ↗</a>
+      <button id="presentButton" class="primary">Present</button>
     </div>
-
-    <script src="app.js"></script>
-  </body>
+  </header>
+  <aside class="sidebar">
+    <button id="courseButton" class="course-switch"><span class="eyebrow">COURSE CONTENTS</span><strong>Unit 1 · Fundamentals <span>⌄</span></strong></button>
+    <p class="sidebar-label">9 SECTIONS · 10 TEACHING HOURS</p>
+    <nav id="sectionNav" aria-label="Unit 1 sections"></nav>
+    <div class="sidebar-bottom"><p id="savedLabel">Your place saves automatically</p><div class="progress-track"><span id="unitProgress"></span></div><small id="unitCount"></small><p class="shortcut"><kbd>←</kbd> <kbd>→</kbd> Move between teaching steps</p></div>
+  </aside>
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb"><span id="sectionLabel"></span><span id="stepCount"></span></div>
+    <div id="stepRail" class="step-rail" aria-label="Steps in this section"></div>
+    <article id="lesson"></article>
+    <section id="discussion" class="discussion" aria-label="Class discussion"></section>
+  </main>
+  <footer class="stage-footer">
+    <div class="footer-left"><button id="notesButton" aria-expanded="false">Teacher notes</button><button id="exitPresent" hidden>Exit presentation</button><span id="footerLabel"></span></div>
+    <div class="footer-nav"><button id="prevButton">← Previous</button><button id="nextButton" class="primary">Next →</button></div>
+  </footer>
+  <dialog id="notesDialog"><div class="dialog-heading"><p class="eyebrow">TEACHER NOTES · VISIBLE ON THIS SCREEN</p><button data-close="notesDialog" aria-label="Close teacher notes">×</button></div><h2 id="notesTitle"></h2><p id="notesText"></p><p class="note">Close this panel before returning attention to the projected lesson.</p></dialog>
+  <dialog id="courseDialog"><div class="dialog-heading"><p class="eyebrow">THE COMPLETE COURSE</p><button data-close="courseDialog" aria-label="Close course contents">×</button></div><h2>One familiar console.<br>Four units.</h2><div id="unitList"></div><p class="note">Unit 1 is available. Units 2–4 are planned in roadmap.md.</p></dialog>
+  <dialog id="workspaceDialog" class="workspace-dialog"><div class="dialog-heading"><p class="eyebrow">REAL MARIADB · SQL WORKSPACE</p><button data-close="workspaceDialog" aria-label="Close SQL workspace">×</button></div><h2>Try a question of your own.</h2><p class="note">Choose the default database for this request. Each run uses a fresh connection. Use Adminer for multi-statement scripts and persistent-session exercises.</p><div id="workspaceMount"></div></dialog>
+  <dialog id="resetDialog"><div class="dialog-heading"><p class="eyebrow">REPEAT THE PRACTICAL</p><button data-close="resetDialog" aria-label="Cancel reset">×</button></div><h2>Reset lab_students?</h2><p>This removes only <code>classroom_practice.lab_students</code> and its rows. The next CREATE TABLE example will work from a clean start. Other tables and the college dataset stay as they are.</p><div class="dialog-actions"><button data-close="resetDialog">Cancel</button><button id="confirmReset" class="danger">Reset lab_students</button></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="lessons.js"></script>
+  <script src="app.js"></script>
+</body>
 </html>

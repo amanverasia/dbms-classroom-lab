@@ -11,13 +11,17 @@ Build this into a companion for the entire **Database Administration and Securit
 - [x] Local Git repository on `main`.
 - [x] Docker environment with MariaDB, Adminer and the teacher console.
 - [x] Seeded `students`, `courses`, `enrollments` and `student_course_summary`.
-- [x] Five introductory screens: why a DBMS, tables and keys, SQL, relationships, and security.
-- [x] Previous/Next navigation, arrow keys, presentation mode and browser-demo reset.
+- [x] Unit 1: nine sections and 49 teaching steps, replacing the five-screen introduction.
+- [x] Previous/Next navigation, section links, arrow keys, presentation mode and saved position.
+- [x] Teacher notes, answer reveals, quizzes and interactive concept demonstrations.
+- [x] Real MariaDB SQL editor and workspace, with a separate practice database and scoped reset.
 - [x] Four-unit roadmap.
-- [ ] Complete Unit 1.
+- [x] Complete the proposed Unit 1 sequence (confirm alignment with the original syllabus image separately).
 - [ ] Complete Units 2, 3 and 4.
 
-**Important implementation boundary:** the current console's SQL editor uses a small JavaScript simulation. It does not execute against the MariaDB container, despite its current connection label. Adminer is the real database interface. Browser reset only resets the simulation. Resolving this distinction is an early milestone before expanding the SQL teaching experience.
+**Current execution model:** the SQL editor and live table/relationship explorers now read actual MariaDB data through a containerized service. The console account has SELECT access to college_demo and table-editing privileges in classroom_practice. Concept animations are labeled illustrations and do not execute SQL. Each SQL request uses a new connection; persistent transactions, multi-session lessons and general migration tooling remain later work.
+
+**Delivered release:** M0, M1, M2 and the Unit 1 portion of M3. M3 was moved forward to support the integrated real practical. Later units remain planned. The original first-lecture baseline is preserved in commit `b0eb8da`.
 
 ## Classroom experience to preserve
 
@@ -44,7 +48,7 @@ The default sequence should work without typing commands, rearranging windows, c
 | M6 — Unit 4 | Monitoring, maintenance and recovery scenarios | Slow-query, blocking and restore demonstrations can be repeated reliably |
 | M7 — Course rehearsal | Full teaching path, instructor guide and release checklist | All four units are navigable and usable after restarting Docker |
 
-For M1/M2, explicitly label simulated examples and provide a clear route to real MariaDB in Adminer. M3 must be finished before presenting the console editor as a general SQL environment. Move M3 earlier if Unit 1 needs integrated live SQL.
+For M1/M2, concept illustrations are explicitly labeled, and Adminer remains accessible. The early M3 service supports real, single-statement SQL for Unit 1; multi-session transaction handling must be added before those later lessons.
 
 ## Unit 1 — DBMS fundamentals · 10 hours
 
@@ -97,7 +101,7 @@ For M1/M2, explicitly label simulated examples and provide a clear route to real
 
 **Prepared interaction:** highlight all students on one course; then trace one student through multiple enrollment records.
 
-**Dataset decision:** currently `students.course_id` and `enrollments` coexist. Give `students.course_id` an explicit meaning such as “primary course,” or migrate to a clearly staged model before teaching both. They must not imply conflicting definitions of enrollment.
+**Dataset decision (implemented):** `students.course_id` means primary-course assignment. `enrollments` records actual course participation. These are separate facts; assigning a primary course does not automatically create an enrollment. The relationship lessons explain this distinction, including Meera's zero-enrollment example.
 
 ### 1.6 Schema, instance and abstraction · 60 minutes
 
@@ -141,14 +145,14 @@ For M1/M2, explicitly label simulated examples and provide a clear route to real
 
 ### Unit 1 completion criteria
 
-- [ ] All nine sections are accessible directly and in one continuous teaching sequence.
-- [ ] Each section includes an objective, prepared example, teacher prompt, student task and recap.
-- [ ] Key concepts have visible highlighting or a concrete before/after example.
-- [ ] Answers are revealed intentionally rather than shown immediately.
-- [ ] Simulated behavior and real MariaDB behavior are clearly distinguished.
-- [ ] The real practical is rehearsed from a known database state.
-- [ ] Screen content remains readable on a classroom projector.
-- [ ] Restarting Docker and refreshing the page do not lose the teacher's place.
+- [x] All nine sections are accessible directly and in one continuous teaching sequence.
+- [x] Each section includes an objective, prepared example, teacher prompt, student task and recap.
+- [x] Key concepts have visible highlighting or a concrete before/after example.
+- [x] Answers are revealed intentionally rather than shown immediately.
+- [x] Concept illustrations and real MariaDB behavior are clearly distinguished.
+- [x] The real practical is rehearsed from a known database state.
+- [x] Layout is checked in browser and presentation mode; confirm on the actual classroom projector before teaching.
+- [x] Position persists in browser storage and the page link across reloads; container restarts do not modify browser storage.
 
 ## Unit 2 — SQL · 10 hours
 
@@ -196,7 +200,7 @@ Provide actual server sessions and log output. Use deliberate blocking and query
 
 ### Reusable lesson structure
 
-Refactor the current hardcoded screens incrementally into a lesson registry. Each step needs a stable ID, unit, section, title, objective, visual content, optional demo action, teacher notes, discussion prompt, answer reveal and expected outcome. Keep lesson content separate from navigation and database execution.
+Implemented in `lessons.js`: a course registry with stable section and step IDs, objectives, content, demonstrations, teacher notes, prompts, answers and query outcomes. `app.js` renders reusable step types and manages navigation and database requests. Extend this registry for later units.
 
 Support direct section access, resume position in browser storage, a visible unit/section indicator, keyboard navigation and a clear exit from presentation mode. Reuse a small set of step types: explanation, table exploration, comparison, relationship, query, challenge and recap.
 
@@ -210,7 +214,7 @@ Version seeds and schema migrations. Existing Docker volumes do not automaticall
 
 Add a small backend service in Docker that the teacher console calls to execute lesson queries and retrieve results. Start with predefined query examples, then enable an editable SQL workspace for practice. Keep database credentials on the service side. Use separate database identities for each privilege demonstration, and handle multiple sessions explicitly for transaction lessons.
 
-Before the next release, bind classroom ports to loopback for local teaching, verify the Adminer version used, and make the demo/real-connection indicator truthful. Offer intentional classroom-network sharing as a separate future capability.
+Classroom ports now bind to loopback and the connection indicator checks actual MariaDB connectivity. The existing Adminer image was reused for its PHP runtime; review and pin image versions as a future maintenance task. Offer intentional classroom-network sharing as a separate future capability.
 
 ### Docker-only operation
 
@@ -227,10 +231,10 @@ All servers, package installs, build steps and test runtimes belong in container
 
 ## Suggested next development session
 
-1. Build the unit/section/step navigation and migrate the current introduction into it.
-2. Add truthful labels for the current SQL simulation and an obvious “Open real MariaDB” action.
-3. Deliver Unit 1 sections 1.1–1.3 with prepared interactions and teacher notes.
-4. Complete sections 1.4–1.6, resolving the course/enrollment model as part of that work.
-5. Finish sections 1.7–1.9 and rehearse the entire unit.
+1. Teach or rehearse Unit 1 and record pacing/content adjustments against the original syllabus.
+2. Extend the registry and navigation for Unit 2, beginning with DDL/DML and constraints.
+3. Add deterministic Unit 2 fixtures and scoped resets for more involved exercises.
+4. Broaden query examples and result handling for aggregation, joins and subqueries.
+5. Add persistent sessions when transaction lessons require them; the current per-request connections do not support that workflow.
 
 Update this file as milestones are delivered. Checkboxes indicate completed work, not intended work. Commit each coherent milestone so a known working classroom version can always be recovered.
