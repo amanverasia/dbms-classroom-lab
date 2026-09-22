@@ -212,7 +212,8 @@ button.selected { background: var(--accent-soft); border-color: #a67961; color: 
 .database-select { max-width: 100%; margin-left: 10px; padding: 7px; border: 1px solid #c7c7b9; border-radius: 3px; background: var(--panel); color: var(--ink); font-size: 12px; }
 .sql-editor { display: block; width: 100%; min-height: 130px; resize: vertical; padding: 20px 22px; border: 0; background: #fffef9; color: #414b32; font: 15px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; }
 .query-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); }
-.query-actions > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.query-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.query-actions > .note { flex-shrink: 0; }
 .query-actions button { padding: 8px 10px; font-size: 11px; }
 .query-status { padding: 11px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .query-result { max-height: 300px; overflow: auto; }

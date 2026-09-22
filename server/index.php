@@ -3,6 +3,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+require_once __DIR__ . '/unit2.php';
 
 function reply(array $body, int $status = 200): never {
     http_response_code($status);
@@ -27,8 +28,19 @@ try {
     if (($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '') === 'cross-site') reply(['error' => 'Use the local classroom console.'], 403);
     $input = json_decode(file_get_contents('php://input'), true, 16, JSON_THROW_ON_ERROR);
     $database = $input['database'] ?? 'college_demo';
-    if (!in_array($database, ['college_demo', 'classroom_practice'], true)) reply(['error' => 'Choose a classroom database.'], 400);
+    if (!in_array($database, ['college_demo', 'classroom_practice', 'sql_lab'], true)) reply(['error' => 'Choose a classroom database.'], 400);
     $db = connectDb($database);
+    if ($path === '/api/prepare-unit2' || $path === '/api/reset-unit2') {
+        $db = connectDb('sql_lab');
+        reply(['ok' => true, 'message' => prepareUnit2($db, $path === '/api/reset-unit2')]);
+    }
+    if ($path === '/api/reset-edit-copy') {
+        $db = connectDb('sql_lab');
+        $db->query('DROP TABLE IF EXISTS student_edits');
+        $db->query('CREATE TABLE student_edits LIKE students');
+        $db->query('INSERT INTO student_edits SELECT * FROM students');
+        reply(['ok' => true, 'message' => 'student_edits restored from the Unit 2 students table. Other tables are unchanged.']);
+    }
     if ($path === '/api/reset-practice') {
         // Only this disposable lesson table is reset; unrelated tables and seed data remain intact.
         $db = connectDb('classroom_practice');
@@ -51,6 +63,8 @@ try {
     reply(['columns' => [], 'rows' => [], 'affected' => $db->affected_rows, 'ms' => $elapsed, 'message' => 'Statement completed.']);
 } catch (mysqli_sql_exception $error) {
     reply(['error' => $error->getMessage(), 'code' => $error->getCode()], 400);
+} catch (RuntimeException $error) {
+    reply(['error' => $error->getMessage()], 409);
 } catch (Throwable $error) {
     reply(['error' => 'The classroom service could not handle this request. Check that the Docker lab is ready.'], 500);
 }

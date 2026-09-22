@@ -9,6 +9,7 @@ Build this into a companion for the entire **Database Administration and Securit
 ## Current state
 
 - [x] Local Git repository on `main`.
+- [x] Private GitHub repository: `amanverasia/dbms-classroom-lab`.
 - [x] Docker environment with MariaDB, Adminer and the teacher console.
 - [x] Seeded `students`, `courses`, `enrollments` and `student_course_summary`.
 - [x] Unit 1: nine sections and 49 teaching steps, replacing the five-screen introduction.
@@ -17,11 +18,13 @@ Build this into a companion for the entire **Database Administration and Securit
 - [x] Real MariaDB SQL editor and workspace, with a separate practice database and scoped reset.
 - [x] Four-unit roadmap.
 - [x] Complete the proposed Unit 1 sequence (confirm alignment with the original syllabus image separately).
-- [ ] Complete Units 2, 3 and 4.
+- [x] Unit 2: seven sections, 46 teaching steps and 72 tested SQL statements/presets/inspections.
+- [x] Course navigation and continuous Next/Previous across the two available units.
+- [ ] Complete Units 3 and 4.
 
-**Current execution model:** the SQL editor and live table/relationship explorers now read actual MariaDB data through a containerized service. The console account has SELECT access to college_demo and table-editing privileges in classroom_practice. Concept animations are labeled illustrations and do not execute SQL. Each SQL request uses a new connection; persistent transactions, multi-session lessons and general migration tooling remain later work.
+**Current execution model:** the SQL editor and live table/relationship explorers read actual MariaDB data through a containerized service. The console account has SELECT access to college_demo and editing privileges in classroom_practice and sql_lab. Unit 2 uses a separate fixture, a disposable edit copy and scoped resets. Concept animations are labeled illustrations and do not execute SQL. Each request uses a new connection; persistent transactions and multi-session lessons remain later work.
 
-**Delivered release:** M0, M1, M2 and the Unit 1 portion of M3. M3 was moved forward to support the integrated real practical. Later units remain planned. The original first-lecture baseline is preserved in commit `b0eb8da`.
+**Delivered release:** M0–M4, including both proposed 10-hour teaching sequences and the real SQL foundation they require. Multi-session work for later units is still pending. The first-lecture baseline is preserved in commit `b0eb8da`, and the full Unit 1 release in `e50ff51`.
 
 ## Classroom experience to preserve
 
@@ -166,7 +169,7 @@ For M1/M2, concept illustrations are explicitly labeled, and Adminer remains acc
 | 2.6 Subqueries and views | 90 min | IN, EXISTS, correlated subqueries, ANY/ALL, reusable views |
 | 2.7 Functions and practical checkpoint | 75 min | String/date/numeric functions and a reporting challenge |
 
-Completion requires real MariaDB execution, useful errors, empty-result handling, predictable row ordering where demonstrated, and repeatable practice data. The lesson should distinguish SQL's semantics from the particular ordering or formatting chosen by the UI.
+Delivered: all seven sections, 46 teaching steps, answer reveals, quizzes, a reporting challenge and real MariaDB examples. The SQL rehearsal verifies 72 statements/presets/inspections, expected errors, row counts, aggregate values, payment totals and reset isolation. The editing demos use student_edits; resetting it leaves the source rows for the other SQL lessons available.
 
 ## Unit 3 — MariaDB security and administration · 10 hours
 
@@ -231,10 +234,10 @@ All servers, package installs, build steps and test runtimes belong in container
 
 ## Suggested next development session
 
-1. Teach or rehearse Unit 1 and record pacing/content adjustments against the original syllabus.
-2. Extend the registry and navigation for Unit 2, beginning with DDL/DML and constraints.
-3. Add deterministic Unit 2 fixtures and scoped resets for more involved exercises.
-4. Broaden query examples and result handling for aggregation, joins and subqueries.
-5. Add persistent sessions when transaction lessons require them; the current per-request connections do not support that workflow.
+1. Teach or rehearse Units 1 and 2 and record pacing/content adjustments against the original syllabus.
+2. Build Unit 3's account, privilege and least-privilege demonstrations with actual MariaDB identities.
+3. Add persistent sessions for transactions and session-specific administration before teaching those workflows.
+4. Prepare isolated network/TLS and application-security demonstrations inside Docker.
+5. Continue to Unit 4 after the administration foundation is tested.
 
 Update this file as milestones are delivered. Checkboxes indicate completed work, not intended work. Commit each coherent milestone so a known working classroom version can always be recovered.

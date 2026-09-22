@@ -33,7 +33,17 @@ async function api(path, body) {
     throw error;
   } finally { clearTimeout(timeout); }
 }
-function query(sql, database = 'college_demo') { return api('query', {sql, database}); }
+let unit2Ready;
+function prepareUnit2() {
+  if (!unit2Ready) unit2Ready = api('prepare-unit2', {database:'sql_lab'}).catch(error => {unit2Ready = null; throw error;});
+  return unit2Ready;
+}
+async function query(sql, database = 'college_demo') {
+  if (database === 'sql_lab') await prepareUnit2();
+  return api('query', {sql, database});
+}
+function currentUnit() { return COURSE.units.find(unit => unit.id === allSteps[position].section.unit); }
+function currentDatabase() { return currentUnit().id === 'u2' ? 'sql_lab' : 'college_demo'; }
 async function health() {
   try { const result = await api('health'); $('#health').textContent = '● MariaDB connected'; $('#health').className = 'connection ready'; $('#health').title = result.version; }
   catch (_) { $('#health').textContent = '○ MariaDB unavailable'; $('#health').className = 'connection offline'; }
@@ -43,19 +53,27 @@ function tableHTML(columns, rows, options = {}) {
 }
 function cardsHTML(cards) { return `<div class="cards">${cards.map(([title,text]) => `<div class="card"><h3>${esc(title)}</h3><p>${esc(text)}</p></div>`).join('')}</div>`; }
 function renderNav(section, step) {
-  $('#sectionNav').innerHTML = sections.map(s => `<button class="section-link ${s === section ? 'active' : ''}" data-section="${s.id}" ${s === section ? 'aria-current="step"' : ''}><span>${s.number}</span><strong>${esc(s.title)}</strong><small>${s.minutes} min</small></button>`).join('');
+  const unit = COURSE.units.find(unit => unit.id === section.unit);
+  const unitNumber = COURSE.units.indexOf(unit) + 1;
+  const unitSections = sections.filter(s => s.unit === section.unit);
+  const unitSteps = allSteps.filter(item => item.section.unit === section.unit);
+  const unitPosition = unitSteps.findIndex(item => item.step === step);
+  $('#currentUnitLabel').textContent = 'Unit ' + unitNumber + ' · ' + (unitNumber === 1 ? 'Fundamentals' : unit.title);
+  $('#unitSummary').textContent = unitSections.length + ' sections · ' + unit.hours + ' teaching hours';
+  $('#sectionNav').setAttribute('aria-label', 'Unit ' + unitNumber + ' sections');
+  $('#sectionNav').innerHTML = unitSections.map(s => '<button class="section-link '+(s===section?'active':'')+'" data-section="'+s.id+'" '+(s===section?'aria-current="step"':'')+'><span>'+s.number+'</span><strong>'+esc(s.title)+'</strong><small>'+s.minutes+' min</small></button>').join('');
   $$('.section-link').forEach(button => button.onclick = () => go(allSteps.findIndex(item => item.section.id === button.dataset.section)));
   const localIndex = section.steps.indexOf(step);
-  $('#sectionLabel').textContent = `Unit 1 / ${section.number} ${section.title}`;
-  $('#stepCount').textContent = `Step ${localIndex+1} of ${section.steps.length} · ${section.minutes} min section`;
-  $('#stepRail').innerHTML = section.steps.map((s,i) => `<button class="step-dot ${i === localIndex ? 'active' : ''} ${i < localIndex ? 'past' : ''}" data-step="${s.id}" aria-label="Step ${i+1}: ${esc(s.title)}" title="${esc(s.title)}" ${i === localIndex ? 'aria-current="step"' : ''}></button>`).join('');
+  $('#sectionLabel').textContent = 'Unit ' + unitNumber + ' / ' + section.number + ' ' + section.title;
+  $('#stepCount').textContent = 'Step '+(localIndex+1)+' of '+section.steps.length+' · '+section.minutes+' min section';
+  $('#stepRail').innerHTML = section.steps.map((s,i) => '<button class="step-dot '+(i===localIndex?'active':'')+' '+(i<localIndex?'past':'')+'" data-step="'+s.id+'" aria-label="Step '+(i+1)+': '+esc(s.title)+'" title="'+esc(s.title)+'" '+(i===localIndex?'aria-current="step"':'')+'></button>').join('');
   $$('.step-dot').forEach(b => b.onclick = () => go(allSteps.findIndex(item => item.step.id === b.dataset.step)));
-  $('#unitProgress').style.width = `${(position+1)/allSteps.length*100}%`;
-  $('#unitCount').textContent = `Teaching step ${position+1} of ${allSteps.length}`;
-  $('#footerLabel').textContent = `${section.number} · ${section.title}`;
+  $('#unitProgress').style.width = ((unitPosition+1)/unitSteps.length*100)+'%';
+  $('#unitCount').textContent = 'Unit '+unitNumber+' · step '+(unitPosition+1)+' of '+unitSteps.length;
+  $('#footerLabel').textContent = section.number + ' · ' + section.title;
   $('#prevButton').disabled = position === 0;
   const next = allSteps[position+1];
-  $('#nextButton').textContent = !next ? 'Unit 1 complete ✓' : next.section !== section ? `Next: ${next.section.title} →` : 'Next →';
+  $('#nextButton').textContent = !next ? 'Unit '+unitNumber+' complete ✓' : next.section.unit !== section.unit ? 'Next: Unit '+(unitNumber+1)+' →' : next.section !== section ? 'Next: '+next.section.title+' →' : 'Next →';
   $('#nextButton').disabled = !next;
 }
 function go(index, updateHash = true) {
@@ -89,7 +107,7 @@ function renderDemo(step, version) {
     case 'layers': renderLayers(mount); break;
     case 'pipeline': renderPipeline(mount); break;
     case 'query': renderQuery(mount, step); break;
-    case 'challenge': mount.innerHTML = `<div class="challenge"><span class="challenge-icon">✎</span><div><h3>Pause for student work</h3><p>Discuss the assumptions. Sketch the design. Explain why it works.</p><button id="challengeWorkspace">Open SQL workspace</button></div></div>`; $('#challengeWorkspace').onclick = () => openWorkspace('classroom_practice'); break;
+    case 'challenge': mount.innerHTML = `<div class="challenge"><span class="challenge-icon">✎</span><div><h3>Pause for student work</h3><p>Discuss the assumptions. Sketch the design. Explain why it works.</p><button id="challengeWorkspace">Open SQL workspace</button></div></div>`; $('#challengeWorkspace').onclick = () => openWorkspace(step.database || 'classroom_practice'); break;
   }
 }
 function renderQuiz(mount, step) {
@@ -175,53 +193,93 @@ function renderPipeline(mount) {
   }
   draw();
 }
+function requestReset(kind, status, resultMount) {
+  const choices = {
+    practice: {endpoint:'reset-practice', database:'classroom_practice', title:'Reset lab_students?', button:'Reset lab_students', description:'This removes only classroom_practice.lab_students and its rows. The next CREATE TABLE example starts clean. Other tables stay as they are.'},
+    edit: {endpoint:'reset-edit-copy', database:'sql_lab', title:'Restore the edit copy?', button:'Restore edit copy', description:'This replaces only sql_lab.student_edits with a fresh copy of the current sql_lab.students records. Changes made in student_edits will be discarded.'},
+    unit2: {endpoint:'reset-unit2', database:'sql_lab', title:'Reset Unit 2 data?', button:'Reset Unit 2 data', description:'This restores the original Unit 2 students, courses, enrollments, payments, student_edits and lesson_state. It removes course_notes and the course_roster view. Changes in these named objects will be discarded. Unit 1 and other practice tables are not reset.'}
+  };
+  resetTarget = {...choices[kind], status, resultMount};
+  $('#resetTitle').textContent = resetTarget.title;
+  $('#resetDescription').textContent = resetTarget.description;
+  $('#confirmReset').textContent = resetTarget.button;
+  $('#resetDialog').showModal();
+}
 function renderQuery(mount, config, workspace=false) {
-  const isPractice=config.database==='classroom_practice', presets=config.presets||[];
-  mount.innerHTML=`<div class="query-shell"><div class="query-toolbar"><label>Database <select class="database-select" aria-label="Query database"><option value="college_demo" ${!isPractice?'selected':''}>college_demo · read only</option><option value="classroom_practice" ${isPractice?'selected':''}>classroom_practice · editable</option></select></label><span>MariaDB</span></div>${presets.length?`<div class="query-presets">${presets.map(([title],i)=>`<button data-preset="${i}">${esc(title)}</button>`).join('')}</div>`:''}<textarea class="sql-editor" aria-label="SQL query" spellcheck="false">${esc(config.sql||'SHOW TABLES;')}</textarea><div class="query-actions"><span class="note">One statement per run · ⌘ / Ctrl + Enter</span><div>${config.setup?'<button class="prepare-query">Prepare example</button>':''}${isPractice||workspace?'<button class="reset-practice">Reset lab_students</button>':''}<button class="run-query primary">Run query</button></div></div><div class="query-status" role="status">Ready to run${config.expected?' · predict the result first':''}</div><div class="query-result"></div></div>${config.expected?`<details class="expected"><summary>Expected outcome · teacher reference</summary><p>${esc(config.expected)}</p></details>`:''}${config.setup?`<p class="note">Prepare example creates lab_students if missing${config.seedPractice?' and adds missing sample emails':''}. It preserves existing practice records.</p>`:''}`;
-  const editor=$('.sql-editor',mount), select=$('.database-select',mount), status=$('.query-status',mount), resultMount=$('.query-result',mount), runButton=$('.run-query',mount);
+  const database=config.database||currentDatabase(), presets=config.presets||[];
+  const databases=[['college_demo','college_demo · read only'],['classroom_practice','classroom_practice · Unit 1'],['sql_lab','sql_lab · Unit 2']];
+  mount.innerHTML = '<div class="query-shell"><div class="query-toolbar"><label>Database <select class="database-select" aria-label="Query database">'+databases.map(([id,title])=>'<option value="'+id+'" '+(id===database?'selected':'')+'>'+title+'</option>').join('')+'</select></label><span>MariaDB</span></div>'+
+    (presets.length?'<div class="query-presets">'+presets.map(([title],i)=>'<button data-preset="'+i+'">'+esc(title)+'</button>').join('')+'</div>':'')+
+    '<textarea class="sql-editor" aria-label="SQL query" spellcheck="false">'+esc(config.sql||'SHOW TABLES;')+'</textarea><div class="query-actions"><span class="note">One statement · ⌘ / Ctrl + Enter</span><div>'+
+    (config.setup?'<button class="prepare-query">Prepare example</button>':'')+
+    (config.inspectSql?'<button class="inspect-query">Inspect result</button>':'')+
+    '<button class="reset-practice">Reset lab_students</button><button class="reset-edit">Restore edit copy</button><button class="reset-unit2">Reset Unit 2 data</button><button class="run-query primary">Run query</button></div></div><div class="query-status" role="status">Ready to run'+(config.expected?' · predict the result first':'')+'</div><div class="query-result"></div></div>'+
+    (config.expected?'<details class="expected"><summary>Expected outcome · teacher reference</summary><p>'+esc(config.expected)+'</p></details>':'')+
+    (config.setup?'<p class="note">Prepare example creates lab_students if missing'+(config.seedPractice?' and adds missing sample emails':'')+'. It preserves existing practice records.</p>':'');
+  const editor=$('.sql-editor',mount), select=$('.database-select',mount), status=$('.query-status',mount), resultMount=$('.query-result',mount);
   let busy=false;
-  async function run() {
-    if(busy)return;
-    busy=true;runButton.disabled=true;status.textContent='Running in MariaDB…';resultMount.innerHTML='';
-    try {
-      const result=await query(editor.value,select.value);
-      resultMount.innerHTML=result.columns.length?tableHTML(result.columns,result.rows):`<p class="success result-message">${esc(result.message)} ${result.affected} row(s) affected.</p>`;
-      status.textContent=`${select.value} · ${result.columns.length?`${result.count} row(s) returned`:`${result.affected} row(s) affected`} · ${result.ms} ms${result.truncated?' · showing first 200 rows':''}`;health();
-    }catch(error){status.textContent='MariaDB request failed';resultMount.innerHTML=`<p class="error result-message">${esc(error.message)}</p>`;}
-    finally{busy=false;runButton.disabled=false;}
+  function setBusy(value) { busy=value; $$('button',mount).forEach(b=>b.disabled=value); select.disabled=value; editor.readOnly=value; }
+  function resetVisibility() {
+    $('.reset-practice',mount).hidden=select.value!=='classroom_practice';
+    $('.reset-edit',mount).hidden=select.value!=='sql_lab';
+    $('.reset-unit2',mount).hidden=select.value!=='sql_lab';
   }
-  runButton.onclick=run;
+  resetVisibility(); select.onchange=()=>{resetVisibility();status.textContent='Database selected · ready to run';resultMount.innerHTML='';};
+  async function run(sql=editor.value,inspect=false) {
+    if(busy)return;
+    const selected=select.value;
+    setBusy(true); status.textContent='Running in MariaDB…';resultMount.innerHTML='';
+    try {
+      const result=await query(sql,selected);
+      resultMount.innerHTML=result.columns.length?tableHTML(result.columns,result.rows):'<p class="success result-message">'+esc(result.message)+' '+result.affected+' row(s) affected.</p>';
+      status.textContent=(inspect?'Inspection · ':'')+selected+' · '+(result.columns.length?result.count+' row(s) returned':result.affected+' row(s) affected')+' · '+result.ms+' ms'+(result.truncated?' · showing first 200 rows':'');
+    }catch(error){status.textContent='MariaDB request failed';resultMount.innerHTML='<p class="error result-message">'+esc(error.message)+'</p>';}
+    finally{setBusy(false);}
+  }
+  $('.run-query',mount).onclick=()=>run();
+  if($('.inspect-query',mount))$('.inspect-query',mount).onclick=()=>run(config.inspectSql,true);
   editor.onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();run();}};
   $$('[data-preset]',mount).forEach(b=>b.onclick=()=>{editor.value=presets[Number(b.dataset.preset)][1];status.textContent='Example loaded · predict, then run';resultMount.innerHTML='';});
-  if($('.prepare-query',mount))$('.prepare-query',mount).onclick=async event=>{
+  if($('.prepare-query',mount))$('.prepare-query',mount).onclick=async()=>{
     if(busy)return;
-    busy=true;event.target.disabled=true;runButton.disabled=true;
+    setBusy(true);
     try {
       await query(practiceDefinition,'classroom_practice');
-      if(config.seedPractice)for(const[name,email,age]of[['Aman','aman.lab@example.com',25],['Riya','riya.lab@example.com',19],['Kabir','kabir.lab@example.com',22]])await query(`INSERT INTO lab_students (name,email,age) SELECT '${name}','${email}',${age} WHERE NOT EXISTS (SELECT 1 FROM lab_students WHERE email='${email}');`,'classroom_practice');
-      select.value='classroom_practice';status.textContent='Example prepared · run the loaded statement';resultMount.innerHTML='';
-    }catch(error){resultMount.innerHTML=`<p class="error result-message">${esc(error.message)}</p>`;}
-    finally{busy=false;event.target.disabled=false;runButton.disabled=false;}
+      if(config.seedPractice)for(const[name,email,age]of[['Aman','aman.lab@example.com',25],['Riya','riya.lab@example.com',19],['Kabir','kabir.lab@example.com',22]])await query("INSERT INTO lab_students (name,email,age) SELECT '"+name+"','"+email+"',"+age+" WHERE NOT EXISTS (SELECT 1 FROM lab_students WHERE email='"+email+"');",'classroom_practice');
+      select.value='classroom_practice';resetVisibility();status.textContent='Example prepared · run the loaded statement';resultMount.innerHTML='';
+    }catch(error){resultMount.innerHTML='<p class="error result-message">'+esc(error.message)+'</p>';}
+    finally{setBusy(false);}
   };
-  if($('.reset-practice',mount))$('.reset-practice',mount).onclick=()=>{resetTarget={status,resultMount};$('#resetDialog').showModal();};
+  $('.reset-practice',mount).onclick=()=>requestReset('practice',status,resultMount);
+  $('.reset-edit',mount).onclick=()=>requestReset('edit',status,resultMount);
+  $('.reset-unit2',mount).onclick=()=>requestReset('unit2',status,resultMount);
 }
-function openWorkspace(database='college_demo') {renderQuery($('#workspaceMount'),{database,sql:database==='college_demo'?'SELECT * FROM students ORDER BY id;':'SHOW TABLES;'},true);$('#workspaceDialog').showModal();}
+function openWorkspace(database=currentDatabase()) {
+  renderQuery($('#workspaceMount'),{database,sql:database==='classroom_practice'?'SHOW TABLES;':'SELECT * FROM students ORDER BY id;'},true);
+  $('#workspaceDialog').showModal();
+}
 function presentation(value=!document.body.classList.contains('presenting')) {
   document.body.classList.toggle('presenting',value);$('#exitPresent').hidden=!value;$('#presentButton').textContent=value?'Exit presentation':'Present';
   if(value&&document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});
   if(!value&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
 }
 $('#courseButton').onclick=()=>$('#courseDialog').showModal();
-$('#unitList').innerHTML=COURSE.units.map((unit,i)=>`<button class="unit-card" data-unit="${i}" ${unit.status!=='ready'?'disabled':''}><span class="unit-number">0${i+1}</span><span><strong>${esc(unit.title)}</strong><small>${unit.hours} teaching hours · ${unit.status==='ready'?'9 sections available':'Planned'}</small></span><span>${unit.status==='ready'?'Open →':'Coming later'}</span></button>`).join('');
-$$('[data-unit]').forEach(b=>b.onclick=()=>{$('#courseDialog').close();go(0);});
+$('#unitList').innerHTML=COURSE.units.map((unit,i)=>'<button class="unit-card" data-unit="'+unit.id+'" '+(unit.status!=='ready'?'disabled':'')+'><span class="unit-number">0'+(i+1)+'</span><span><strong>'+esc(unit.title)+'</strong><small>'+unit.hours+' teaching hours · '+(unit.status==='ready'?sections.filter(s=>s.unit===unit.id).length+' sections available':'Planned')+'</small></span><span>'+(unit.status==='ready'?'Open →':'Coming later')+'</span></button>').join('');
+$$('[data-unit]').forEach(b=>b.onclick=()=>{$('#courseDialog').close();go(allSteps.findIndex(item=>item.section.unit===b.dataset.unit));});
 $('#workspaceButton').onclick=()=>openWorkspace();$('#presentButton').onclick=()=>presentation();$('#exitPresent').onclick=()=>presentation(false);
 $('#notesButton').onclick=()=>{$('#notesDialog').showModal();$('#notesButton').setAttribute('aria-expanded','true');};
 $('#notesDialog').addEventListener('close',()=>$('#notesButton').setAttribute('aria-expanded','false'));
 $$('[data-close]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close).close());
 $('#prevButton').onclick=()=>go(position-1);$('#nextButton').onclick=()=>go(position+1);
 $('#confirmReset').onclick=async()=>{
+  if(!resetTarget)return;
   $('#confirmReset').disabled=true;
-  try{const result=await api('reset-practice',{database:'classroom_practice'});if(resetTarget){resetTarget.status.textContent=result.message;resetTarget.resultMount.innerHTML='';}$('#resetDialog').close();notify(result.message);}catch(error){notify(error.message);}finally{$('#confirmReset').disabled=false;}
+  try {
+    const result=await api(resetTarget.endpoint,{database:resetTarget.database});
+    resetTarget.status.textContent=result.message;resetTarget.resultMount.innerHTML='';
+    if(resetTarget.database==='sql_lab')unit2Ready=null;
+    $('#resetDialog').close();notify(result.message);
+  }catch(error){notify(error.message);}finally{$('#confirmReset').disabled=false;}
 };
 document.addEventListener('keydown',e=>{
   if($$('dialog[open]').length||e.ctrlKey||e.metaKey||e.altKey||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;
