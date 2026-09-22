@@ -1,0 +1,45 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: dbms-classroom-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: classroom-root
+      MARIADB_DATABASE: college_demo
+    ports:
+      - "3307:3306"
+    volumes:
+      - classroom_db:/var/lib/mysql
+      - ./database/01-seed.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  adminer:
+    image: adminer:4
+    container_name: dbms-classroom-adminer
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+      ADMINER_DESIGN: nette
+    ports:
+      - "8081:8080"
+
+  teacher-console:
+    image: nginx:alpine
+    container_name: dbms-classroom-console
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./styles.css:/usr/share/nginx/html/styles.css:ro
+      - ./app.js:/usr/share/nginx/html/app.js:ro
+
+volumes:
+  classroom_db:

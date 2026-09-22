@@ -1,0 +1,15 @@
+.DS_Store
+._*
+.env
+.env.*
+!.env.example
+node_modules/
+__pycache__/
+*.pyc
+*.log
+coverage/
+test-results/
+playwright-report/
+backups/
+exports/
+data/
