@@ -1,0 +1,11 @@
+*
+!server/
+!server/package.json
+!server/package-lock.json
+!server/*.js
+!server/*.sql
+server/nginx.conf
+server/node_modules/
+!docker/
+!docker/api/
+!docker/api/Dockerfile

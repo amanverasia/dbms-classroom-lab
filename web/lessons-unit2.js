@@ -16,7 +16,7 @@ COURSE.sections.push(
         ],
         question: 'Why include NULL scores and unmatched students/courses on purpose?',
         answer: 'Edge cases make INNER vs OUTER joins, COUNT(*) vs COUNT(col), and NULL comparisons visibly obvious instead of hiding bugs.',
-        notes: 'Introduce sql_lab as distinct from Unit 1 college_demo; point out the Reset Unit 2 data button for repeatable demos.'
+        notes: 'Introduce sql_lab as distinct from Unit 1 college_demo; point out Reset Unit 2 in SQL Studio (and ⌘K) for repeatable demos.'
       },
       {
         id: 'sql-families',
@@ -25,42 +25,41 @@ COURSE.sections.push(
         type: 'cards',
         cards: [
           ['DDL (Definition)', 'CREATE, ALTER, DROP, TRUNCATE define or reshape tables, views, and indexes.'],
-          ['DML (Manipulation & Query)', 'INSERT, UPDATE, DELETE modify data; SELECT (sometimes called DQL) retrieves rows.'],
+          ['DML (Manipulation & Query)', 'INSERT, UPDATE, DELETE modify data; SELECT retrieves rows (sometimes called DQL).'],
           ['DCL & TCL (Control)', 'GRANT and REVOKE govern access (DCL); START TRANSACTION, COMMIT, ROLLBACK govern atomicity (TCL).']
         ],
         question: 'Can ROLLBACK undo a DROP TABLE or CREATE TABLE statement in MariaDB?',
         answer: 'No. MariaDB DDL statements (CREATE, ALTER, DROP, TRUNCATE) issue an implicit COMMIT before running.',
-        notes: 'Mention that DCL commands run with GRANTs inspected next, and full user/role provisioning lives in Unit 3.'
+        notes: 'Mention that DCL permissions are inspected shortly via SHOW GRANTS, and practiced live in Unit 3.'
       },
       {
         id: 'sql-datatypes-ddl-compare',
-        title: 'Core SQL sub-languages & MariaDB data types.',
+        title: 'MariaDB core data types & storage choices.',
         lead: 'Choosing the right column type prevents storage waste, rounding errors, and broken comparisons before any query runs.',
         type: 'comparison',
-        columns: ['Topic / Type', 'Syntax & Storage', 'When to choose it'],
+        columns: ['Column Type', 'Syntax & Storage', 'When to choose it'],
         rows: [
           ['INT / BIGINT', '4-byte / 8-byte exact integer', 'Primary keys, ages, quantities, counters'],
           ['DECIMAL(p, s)', 'Exact fixed-point number (e.g. DECIMAL(9,2))', 'Fees, salaries, ledger balances—never FLOAT for money'],
-          ['VARCHAR(n) vs CHAR(n)', 'Variable-length vs fixed-length padded text', 'VARCHAR for names/emails; CHAR only for fixed codes (e.g. ISO codes)'],
+          ['VARCHAR(n) vs CHAR(n)', 'Variable-length vs fixed-length padded text', 'VARCHAR for names/emails; CHAR only for fixed-width codes (e.g. ISO codes)'],
           ['DATE / DATETIME', 'YYYY-MM-DD / YYYY-MM-DD HH:MM:SS', 'Birth dates, joining dates, audit timestamps'],
-          ['ENUM(\'a\',\'b\')', 'Constrained string set', 'Small closed state sets such as enrollment status'],
-          ['DDL / DML / DCL / TCL', 'Structure / Rows / Access / Transactions', 'CREATE+ALTER+DROP+TRUNCATE | SELECT+INSERT+UPDATE+DELETE | GRANT+REVOKE | COMMIT+ROLLBACK']
+          ["ENUM('a','b')", 'Constrained string set', 'Small closed state sets such as enrollment status']
         ],
         question: 'Why does DECIMAL(9,2) prevent silent ₹0.01 rounding bugs compared to FLOAT or DOUBLE?',
         answer: 'FLOAT/DOUBLE use binary floating-point approximations (0.1 + 0.2 != 0.3 exactly), whereas DECIMAL stores exact base-10 digits.',
-        notes: 'Walk through the data types table quickly during Unit 2 theory lecture before moving into live DDL tables.'
+        notes: 'Walk through each type quickly during Unit 2 theory lecture before moving into live tables and DDL.'
       },
       {
         id: 'sql-inspect',
         title: 'Inspect the four Unit 2 tables.',
-        lead: 'Run the presets to familiarize students with students, courses, enrollments, and payments before querying.',
+        lead: 'Load the presets on the left into SQL Studio to inspect students, courses, enrollments, and payments before querying.',
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT * FROM students ORDER BY id;',
         expected: 'Six students including Dev (id 6) with NULL age and city.',
         question: 'Which two students will vanish when we INNER JOIN students to enrollments?',
         answer: 'Meera (4) and Dev (6) have no matching rows in enrollments.',
-        notes: 'Click through all four presets briefly so students recognize the IDs 1–6 and course IDs 101–104.',
+        notes: 'Step through all four presets briefly so students recognize student IDs 1–6 and course IDs 101–104.',
         expectedRows: 6,
         presets: [
           ['Students', 'SELECT * FROM students ORDER BY id;'],
@@ -72,14 +71,14 @@ COURSE.sections.push(
       {
         id: 'sql-create',
         title: 'Define a table with a foreign key.',
-        lead: 'Create course_notes referencing courses(id), then inspect its metadata with Inspect result.',
+        lead: 'Create course_notes referencing courses(id), then click Inspect in SQL Studio to view DESCRIBE metadata.',
         type: 'query',
         database: 'sql_lab',
         sql: 'CREATE TABLE course_notes (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  course_id INT NOT NULL,\n  note VARCHAR(200) NOT NULL,\n  created_on DATE NOT NULL,\n  FOREIGN KEY (course_id) REFERENCES courses(id)\n);',
-        expected: 'Table created empty. Re-running without Reset Unit 2 data reports table already exists.',
+        expected: 'Table created empty. Re-running without Reset Unit 2 reports Error 1050 (table already exists).',
         question: 'Why store course_id INT instead of duplicating the course name text?',
         answer: 'Referencing courses(id) guarantees valid courses and prevents inconsistent course spellings.',
-        notes: 'Run CREATE, then press Inspect result (DESCRIBE course_notes) to verify the MUL key marker on course_id.',
+        notes: 'Run CREATE in SQL Studio, then click Inspect (DESCRIBE course_notes) to verify the MUL key marker on course_id.',
         inspectSql: 'DESCRIBE course_notes;'
       },
       {
@@ -90,10 +89,10 @@ COURSE.sections.push(
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
         sql: 'ALTER TABLE course_notes\nADD COLUMN priority INT NOT NULL DEFAULT 1 CHECK (priority BETWEEN 1 AND 3);',
-        expected: 'Adds priority INT DEFAULT 1. Use presets to inspect widening note or dropping priority.',
+        expected: 'Adds priority INT DEFAULT 1. Use presets and Inspect to verify schema modifications.',
         question: 'Does ALTER TABLE ADD COLUMN insert new rows into course_notes?',
         answer: 'No. It alters the table schema and assigns the DEFAULT value to existing rows (if any).',
-        notes: 'Click Prepare example if jumping straight to this step so course_notes exists cleanly without priority before running ALTER.',
+        notes: 'Click Prepare in SQL Studio if jumping straight to this step so course_notes starts cleanly without priority.',
         inspectSql: 'DESCRIBE course_notes;',
         presets: [
           ['1. Modify note length', 'ALTER TABLE course_notes MODIFY COLUMN note VARCHAR(400) NOT NULL;'],
@@ -121,8 +120,8 @@ COURSE.sections.push(
       },
       {
         id: 'sql-drop-truncate',
-        title: 'TRUNCATE vs DELETE vs DROP.',
-        lead: 'Compare emptying a table fast (TRUNCATE) with deleting structure altogether (DROP).',
+        title: 'Live demo: TRUNCATE vs DROP.',
+        lead: 'Seed a note row, empty the table fast with TRUNCATE, then remove its definition altogether with DROP.',
         type: 'query',
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
@@ -135,13 +134,13 @@ COURSE.sections.push(
         expected: 'TRUNCATE removes all rows and resets AUTO_INCREMENT while keeping the empty table; DROP removes the entire definition.',
         question: 'Which command keeps the schema intact and resets AUTO_INCREMENT back to 1?',
         answer: 'TRUNCATE TABLE empties the table and resets AUTO_INCREMENT; DROP TABLE destroys both data and schema.',
-        notes: 'Run preset 1, then Inspect result (shows course_notes), then TRUNCATE, then DROP and Inspect result again (returns 0 tables). Remind students TRUNCATE is DDL and cannot be rolled back.',
+        notes: 'Run Preset 1 -> Inspect (course_notes exists) -> Preset 2 (TRUNCATE) -> Preset 3 (DROP) -> Inspect again (empty table list).',
         inspectSql: "SHOW TABLES LIKE 'course_notes';"
       },
       {
         id: 'sql-dcl-preview',
-        title: 'Inspect DCL privileges in action.',
-        lead: 'DCL commands (GRANT / REVOKE) define what each user account is permitted to do.',
+        title: 'DCL permissions: GRANT, REVOKE & SHOW GRANTS.',
+        lead: 'DCL commands (GRANT / REVOKE) define and remove what each user account is permitted to do.',
         type: 'query',
         database: 'college_demo',
         persona: 'dba_lab',
@@ -152,9 +151,9 @@ COURSE.sections.push(
           ['Console grants', "SHOW GRANTS FOR 'classroom_console'@'%';"]
         ],
         expected: 'Shows exact GRANT statements stored in MariaDB for each account.',
-        question: 'Notice reporting only has SELECT. What happens if reporting attempts an INSERT?',
-        answer: 'MariaDB rejects the statement with Error 1142 (INSERT command denied to user reporting).',
-        notes: 'Point out that this step switches persona automatically to dba_lab just to read SHOW GRANTS for other users; Unit 3 practices GRANT/REVOKE directly.'
+        question: 'Write the DCL syntax to grant INSERT on sql_lab.* to reporting, then remove it again.',
+        answer: "GRANT INSERT ON sql_lab.* TO 'reporting'@'%';\nREVOKE INSERT ON sql_lab.* FROM 'reporting'@'%';",
+        notes: 'Explain the symmetric syntax (GRANT ... TO vs REVOKE ... FROM); live account changes run in Unit 3.5.'
       },
       {
         id: 'sql-ddl-check',
@@ -183,60 +182,47 @@ COURSE.sections.push(
         title: 'Theory: the five SQL integrity constraints (+ DEFAULT).',
         lead: 'Constraints declare business promises right inside CREATE TABLE / ALTER TABLE so the DBMS rejects bad data automatically.',
         type: 'comparison',
-        columns: ['Constraint', 'Rule Enforced', 'NULL Allowed? & Limit', 'Example Syntax'],
+        columns: ['Constraint', 'Rule Enforced', 'NULL & Delete Rules', 'Example Syntax'],
         rows: [
-          ['PRIMARY KEY', 'Uniquely identifies each row (Entity Integrity)', 'Never NULL · 1 per table (can be composite)', 'id INT PRIMARY KEY AUTO_INCREMENT'],
-          ['FOREIGN KEY', 'Matches existing parent key (Referential Integrity)', 'Yes unless NOT NULL · Many per table', 'FOREIGN KEY (course_id) REFERENCES courses(id)'],
+          ['PRIMARY KEY', 'Uniquely identifies each row (Entity Integrity)', 'Never NULL · 1 per table (may be composite)', 'id INT PRIMARY KEY AUTO_INCREMENT'],
+          ['FOREIGN KEY', 'Matches existing parent key (Referential Integrity)', 'Yes unless NOT NULL · ON DELETE RESTRICT / CASCADE / SET NULL', 'FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE RESTRICT'],
           ['UNIQUE', 'Prevents duplicate non-NULL values (Alternate Key)', 'Yes (multiple NULLs allowed in SQL)', 'email VARCHAR(120) UNIQUE'],
           ['NOT NULL', 'Forbids missing/unknown values in column', 'Never NULL · Column-level only', 'name VARCHAR(100) NOT NULL'],
           ['CHECK', 'Boolean condition value must satisfy', 'Passes if UNKNOWN (pair with NOT NULL)', 'age INT CHECK (age >= 16)'],
-          ['DEFAULT', 'Supplies fallback value when column omitted', 'Used only if column omitted on INSERT', 'status VARCHAR(20) DEFAULT \'active\'']
+          ['DEFAULT', 'Supplies fallback value when column omitted', 'Used only if column omitted on INSERT', "status VARCHAR(20) DEFAULT 'active'"]
         ],
         question: 'If a column has age INT CHECK (age >= 16) WITHOUT NOT NULL, will MariaDB accept INSERT with age = NULL?',
         answer: 'Yes! Because NULL >= 16 evaluates to UNKNOWN (not FALSE), SQL CHECK constraints accept NULL unless NOT NULL is also declared.',
-        notes: 'Use this matrix during theory lecture before switching to student_edits and triggering all 5 constraint errors live.'
-      },
-      {
-        id: 'sql-edit-copy',
-        title: 'Use a disposable copy for DML edits.',
-        lead: 'student_edits mirrors students so mutations never corrupt the source tables needed by later units.',
-        type: 'query',
-        database: 'sql_lab',
-        editCopy: true,
-        sql: 'SELECT * FROM student_edits ORDER BY id;',
-        expected: 'Six baseline rows copied from sql_lab.students.',
-        question: 'Why keep source students untouched while practicing UPDATE and DELETE?',
-        answer: 'So join and aggregation lessons in Sections 2.4–2.7 always produce deterministic outputs.',
-        notes: 'Point out the "Restore edit copy" button (only resets student_edits) vs "Reset Unit 2 data".',
-        expectedRows: 6
+        notes: 'Cover all 5 constraints and ON DELETE options (RESTRICT, CASCADE, SET NULL) before switching to student_edits.'
       },
       {
         id: 'sql-insert',
-        title: 'Add a record using an explicit column list.',
-        lead: 'Specify columns explicitly so schema order changes cannot break your INSERT.',
+        title: 'Insert into a disposable edit copy using explicit columns.',
+        lead: 'DML steps practice on sql_lab.student_edits (a disposable mirror of students) so source tables remain intact.',
         type: 'query',
         database: 'sql_lab',
         editCopy: true,
         prepare: 'reset-edit-copy',
         sql: "INSERT INTO student_edits (name, email, age, city, joined_on)\nVALUES ('Arun', 'arun.sql@example.com', 21, 'Pune', '2026-08-12');",
-        expected: '1 row affected; id 7 is auto-generated.',
+        expected: '1 row affected; id 7 is auto-generated while students remains untouched.',
         question: 'Why will clicking Run a second time fail immediately?',
         answer: 'The email column has a UNIQUE constraint, so inserting arun.sql@example.com again throws Error 1062.',
-        notes: 'Click Inspect result after inserting to show Arun with id 7.',
+        notes: 'Click Inspect after inserting to show Arun with id 7, and show Restore edit copy in SQL Studio.',
         inspectSql: 'SELECT * FROM student_edits ORDER BY id;'
       },
       {
         id: 'sql-update',
         title: 'Always preview WHERE before running UPDATE.',
-        lead: 'Test your WHERE filter with SELECT first, run the UPDATE, then inspect the result.',
+        lead: 'Test your WHERE filter with SELECT first, run the UPDATE preset, then Inspect the updated row.',
         type: 'query',
         database: 'sql_lab',
         editCopy: true,
+        prepare: 'reset-edit-copy',
         sql: 'SELECT id, name, city FROM student_edits WHERE id = 2;',
         expected: 'Preview finds Riya (id 2). Updating sets her city to Pune.',
         question: 'Why filter by id = 2 instead of name = "Riya"?',
         answer: 'Primary key id uniquely identifies one row even if two students share the same first name.',
-        notes: 'Run Preview first, then switch to Update Riya preset, run, and click Inspect result.',
+        notes: 'Click Prepare if needed, run Preview first, then load Update Riya, Run ⌘↵, and click Inspect.',
         expectedRows: 1,
         inspectSql: 'SELECT id, name, city FROM student_edits ORDER BY id;',
         presets: [
@@ -251,11 +237,12 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         editCopy: true,
+        prepare: 'reset-edit-copy',
         sql: 'DELETE FROM student_edits WHERE id = 6;',
-        expected: '1 row affected if Dev is present; source students table still retains Dev.',
+        expected: '1 row affected when Dev is present; source students table still retains Dev.',
         question: 'Does DELETE FROM student_edits WHERE id = 6 drop the table schema?',
         answer: 'No. DELETE only removes matching tuples while keeping columns and constraints intact.',
-        notes: 'Run DELETE and inspect student_edits vs students to confirm isolation.',
+        notes: 'Run DELETE and click Inspect to confirm only id 6 vanished from student_edits.',
         inspectSql: 'SELECT * FROM student_edits ORDER BY id;'
       },
       {
@@ -265,11 +252,12 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         editCopy: true,
+        prepare: 'reset-edit-copy',
         sql: 'DELETE FROM student_edits;',
-        expected: 'Every remaining row is deleted. Click "Restore edit copy" afterward to restore the 6 baseline rows.',
+        expected: 'Every row is deleted. Click "Restore edit copy" afterward to restore all 6 baseline rows.',
         question: 'Can you still run SELECT * FROM student_edits after deleting every row?',
         answer: 'Yes. It returns 0 rows with all column headers still intact.',
-        notes: 'Run DELETE, click Inspect result to show the empty table, then click Restore edit copy so the next constraint demo has Aman present!',
+        notes: 'Run DELETE, click Inspect to show the empty table, then use Restore edit copy in SQL Studio!',
         inspectSql: 'SELECT * FROM student_edits ORDER BY id;'
       },
       {
@@ -282,9 +270,9 @@ COURSE.sections.push(
         prepare: 'reset-edit-copy',
         sql: "INSERT INTO student_edits (id,name,email,age,city,joined_on)\nVALUES (1,'PK Collision','pk.collision@example.com',24,'Delhi','2026-08-01');",
         expected: 'Every preset fails with a specific MariaDB error code enforcing its declared constraint.',
-        question: 'Notice Prepare example runs cleanly if student_edits was emptied. Why did PK Collision fail with Error 1062?',
+        question: 'Why does PK Collision fail with Error 1062 when student_edits has id = 1?',
         answer: 'id = 1 already exists in student_edits, so PRIMARY KEY rejects the duplicate key.',
-        notes: 'Click Prepare example first if arriving straight from the empty-table step! Step through all 5 presets so students see PRIMARY KEY, UNIQUE, CHECK, NOT NULL, and FOREIGN KEY errors.',
+        notes: 'Click Prepare first if arriving straight from the empty-table step! Step through all 5 presets.',
         expectedError: 1062,
         presets: [
           ['1. Primary key (1062)', "INSERT INTO student_edits (id,name,email,age,city,joined_on) VALUES (1,'PK Collision','pk.collision@example.com',24,'Delhi','2026-08-01');"],
@@ -324,7 +312,7 @@ COURSE.sections.push(
         diagram: 'sql-execution-order',
         question: 'Why does SELECT age + 1 AS next_age FROM students WHERE next_age > 21 fail with Unknown column?',
         answer: 'Because WHERE (Stage 2) executes BEFORE SELECT (Stage 5) creates the alias next_age. ORDER BY (Stage 6) runs after SELECT, so aliases work there.',
-        notes: 'Project this execution-order diagram early in Section 2.3—it explains almost every beginner SQL syntax error in one visual.'
+        notes: 'Project this execution-order diagram early in Section 2.3—it explains almost every beginner SQL error in one visual.'
       },
       {
         id: 'sql-projection',
@@ -336,7 +324,7 @@ COURSE.sections.push(
         expected: 'Six rows with two columns; Dev shows NULL age. DISTINCT city collapses repeats into 4 rows.',
         question: 'How does SELECT DISTINCT treat multiple NULL cities if there were two Dev-like rows?',
         answer: 'DISTINCT groups all NULLs into a single NULL output entry.',
-        notes: 'Run both presets and point out that NULL appears first in ascending ORDER BY city.',
+        notes: 'Run both presets and point out that NULL sorts first in ascending ORDER BY city.',
         expectedRows: 6,
         presets: [
           ['Two columns', 'SELECT name, age FROM students ORDER BY id;'],
@@ -350,45 +338,50 @@ COURSE.sections.push(
         type: 'comparison',
         columns: ['Operator / Rule', 'Meaning & Edge Case', 'Example'],
         rows: [
-          ['Precedence: NOT > AND > OR', 'AND binds tighter than OR unless parenthesized', "(city='Delhi' OR city='Mumbai') AND age >= 20"],
+          ['Precedence: NOT > AND > OR', 'AND binds tighter than OR unless parenthesized', "(city='Mumbai' OR city='Delhi') AND age > 20"],
           ['IN (v1, v2, ...)', 'True if equal to any item; beware NULL in NOT IN!', "WHERE city IN ('Delhi', 'Kochi')"],
           ['BETWEEN a AND b', 'Inclusive endpoints (a <= x AND x <= b)', 'WHERE age BETWEEN 20 AND 23'],
-          ['LIKE pattern', '% = 0+ chars, _ = exactly 1 char (case depends on collation)', "WHERE name LIKE '___'"],
+          ['LIKE pattern', '% = 0+ chars, _ = exactly 1 char (case depends on collation)', "WHERE name LIKE 'a%'"],
           ['IS NULL / IS NOT NULL', 'Only valid way to test missing NULL values (= NULL is UNKNOWN!)', 'WHERE age IS NULL'],
           ['3-Valued Logic', 'TRUE AND UNKNOWN = UNKNOWN · TRUE OR UNKNOWN = TRUE', 'NOT (UNKNOWN) = UNKNOWN']
         ],
         question: 'If age is NULL, what does NOT (age > 20) evaluate to?',
-        answer: 'UNKNOWN—not TRUE! Therefore WHERE NOT (age > 20) still drops Dev (NULL age) unless you also allow OR age IS NULL.',
-        notes: 'Review three-valued logic truth rules here before demonstrating live operator steps.'
+        answer: 'UNKNOWN—not TRUE! Therefore WHERE NOT (age > 20) still drops Dev (NULL age) unless you also add OR age IS NULL.',
+        notes: 'Review three-valued logic truth rules here before demonstrating live operator bugs.'
       },
       {
         id: 'sql-and-or',
         title: 'Operator precedence: AND binds tighter than OR.',
-        lead: 'Always parenthesize mixed boolean conditions so intent is explicit.',
+        lead: 'Always parenthesize mixed OR/AND conditions—remove the parentheses in Preset 2 and watch an unwanted row slip in.',
         type: 'query',
         database: 'sql_lab',
-        sql: "SELECT name, city, age\nFROM students\nWHERE (city = 'Delhi' OR city = 'Mumbai') AND age > 20\nORDER BY id;",
-        expected: 'Aman (25, Delhi), Kabir (22, Delhi), Zoya (23, Mumbai).',
-        question: 'What bug happens if you remove the parentheses when an 18-year-old Delhi student exists?',
-        answer: 'Without parentheses, city = "Delhi" OR (city = "Mumbai" AND age > 20) would wrongly include an 18-year-old from Delhi.',
-        notes: 'Make sure students understand precedence even though all current Delhi rows happen to be > 20.',
-        expectedRows: 3
+        sql: "SELECT name, city, age\nFROM students\nWHERE (city = 'Mumbai' OR city = 'Delhi') AND age > 20\nORDER BY id;",
+        expected: 'With parentheses: 3 rows (Aman, Kabir, Zoya). Without parentheses: 4 rows (pulls in Riya, age 19, from Mumbai!).',
+        question: 'Why did removing the parentheses add Riya (Mumbai, age 19) even though age > 20 was written?',
+        answer: 'AND evaluates before OR, so MariaDB parsed it as: city = "Mumbai" OR (city = "Delhi" AND age > 20), matching every Mumbai student regardless of age.',
+        notes: 'Click Preset 1 (3 rows) then Preset 2 (4 rows) so students see operator precedence cause a real bug live.',
+        expectedRows: 3,
+        presets: [
+          ['With parentheses (3 rows)', "SELECT name, city, age FROM students WHERE (city = 'Mumbai' OR city = 'Delhi') AND age > 20 ORDER BY id;"],
+          ['Missing parentheses (bug: 4 rows)', "SELECT name, city, age FROM students WHERE city = 'Mumbai' OR city = 'Delhi' AND age > 20 ORDER BY id;"]
+        ]
       },
       {
         id: 'sql-in-between',
-        title: 'IN membership sets and BETWEEN ranges.',
-        lead: 'IN checks membership in a discrete list; BETWEEN matches an inclusive closed range.',
+        title: 'IN operator sets, BETWEEN ranges & NOT IN NULL trap.',
+        lead: 'IN checks membership cleanly against a list of values; BETWEEN matches an inclusive closed range.',
         type: 'query',
         database: 'sql_lab',
-        sql: 'SELECT name, age FROM students\nWHERE age BETWEEN 20 AND 23 ORDER BY age, id;',
-        expected: 'Meera (20), Kabir (22), Zoya (23); City IN returns Delhi and Kochi students.',
-        question: 'Does age NOT IN (20, NULL) return rows whose age is 25?',
-        answer: 'No! NOT IN with a NULL inside the list evaluates to UNKNOWN (age != NULL) and returns zero rows.',
-        notes: 'Warn students early about NULL inside IN / NOT IN lists; reinforce BETWEEN inclusivity.',
+        sql: "SELECT name, city FROM students\nWHERE city IN ('Delhi', 'Kochi') ORDER BY id;",
+        expected: 'IN returns 3 students (Aman, Kabir in Delhi; Zoya in Kochi). BETWEEN returns 3 ages (20–23). NOT IN (20, NULL) returns 0 rows!',
+        question: 'Why does age NOT IN (20, NULL) return zero rows—even for Aman whose age is 25?',
+        answer: 'NOT IN (20, NULL) means (age <> 20 AND age <> NULL). Because 25 <> NULL evaluates to UNKNOWN, the AND becomes UNKNOWN and WHERE drops every row.',
+        notes: 'Run all 3 presets! Preset 3 demonstrates one of SQL’s trickiest real-world NULL pitfalls live.',
         expectedRows: 3,
         presets: [
-          ['Age range (BETWEEN)', 'SELECT name, age FROM students WHERE age BETWEEN 20 AND 23 ORDER BY age, id;'],
-          ['City set (IN)', "SELECT name, city FROM students WHERE city IN ('Delhi','Kochi') ORDER BY id;"]
+          ['1. City set (IN)', "SELECT name, city FROM students WHERE city IN ('Delhi','Kochi') ORDER BY id;"],
+          ['2. Age range (BETWEEN)', 'SELECT name, age FROM students WHERE age BETWEEN 20 AND 23 ORDER BY age, id;'],
+          ['3. NOT IN NULL trap (0 rows!)', 'SELECT name, age FROM students WHERE age NOT IN (20, NULL) ORDER BY id;']
         ]
       },
       {
@@ -397,15 +390,16 @@ COURSE.sections.push(
         lead: '% matches zero or more characters; _ matches exactly one character.',
         type: 'query',
         database: 'sql_lab',
-        sql: "SELECT name FROM students WHERE name LIKE '%a%' ORDER BY name;",
-        expected: '5 names contain "a" (case-insensitive under utf8mb4_uca1400_ai_ci); "___" matches 3-letter names (Dev).',
-        question: 'Why does LIKE "%a%" match "Aman" even though A is uppercase?',
-        answer: 'Because the column collation uses case-insensitive (_ci) matching. Use LIKE BINARY or a _cs collation for case sensitivity.',
-        notes: 'Switch between both presets and contrast % vs _ wildcard lengths.',
-        expectedRows: 5,
+        sql: "SELECT name FROM students WHERE name LIKE 'a%' ORDER BY name;",
+        expected: '"a%" matches Aman (case-insensitive); "%a%" matches 5 names; "___" matches 3-letter names (Dev).',
+        question: 'Why does LIKE "a%" match "Aman" even though A is uppercase?',
+        answer: 'Because the column collation uses case-insensitive (_ci) matching. Use LIKE BINARY or a _cs collation when case matters.',
+        notes: 'Contrast "a%" vs "%a%" vs "___" fixed-length wildcard matching.',
+        expectedRows: 1,
         presets: [
+          ['Starts with a (case-insensitive)', "SELECT name FROM students WHERE name LIKE 'a%' ORDER BY name;"],
           ['Contains a', "SELECT name FROM students WHERE name LIKE '%a%' ORDER BY name;"],
-          ['Exactly 3 chars', "SELECT name FROM students WHERE name LIKE '___' ORDER BY name;"]
+          ['Exactly 3 chars (___)', "SELECT name FROM students WHERE name LIKE '___' ORDER BY name;"]
         ]
       },
       {
@@ -418,7 +412,7 @@ COURSE.sections.push(
         expected: 'IS NULL returns Dev; age = NULL returns zero rows.',
         question: 'Why did WHERE age = NULL return an empty table rather than an error?',
         answer: 'It is valid syntax, but age = NULL yields UNKNOWN rather than TRUE for every row.',
-        notes: 'Run "Compare to NULL" first to shock students with 0 rows, then switch back to "Correct NULL test".',
+        notes: 'Run "Compare to NULL (=)" first to show 0 rows, then switch back to "Correct NULL test".',
         expectedRows: 1,
         presets: [
           ['Correct NULL test', 'SELECT id, name, age, city FROM students WHERE age IS NULL ORDER BY id;'],
@@ -436,7 +430,7 @@ COURSE.sections.push(
         expected: 'Aman (25), Zoya (23), Kabir (22).',
         question: 'Why include id ASC as a second sort key if ages are all unique today?',
         answer: 'As soon as two students share an age, LIMIT without a unique tie-breaker produces arbitrary order across queries.',
-        notes: 'Also show why WHERE age IS NOT NULL avoids relying on DBMS-specific NULL sort placement.',
+        notes: 'Also point out why WHERE age IS NOT NULL avoids relying on DBMS-specific NULL sort placement.',
         expectedRows: 3
       },
       {
@@ -449,7 +443,7 @@ COURSE.sections.push(
         expected: '6 rows with age_band labels; Dev cleanly displays Unknown instead of falling into ELSE.',
         question: 'What would Dev be labeled if we removed the WHEN age IS NULL branch?',
         answer: 'NULL >= 21 evaluates to UNKNOWN, so Dev would falsely fall into ELSE "Under 21"!',
-        notes: 'Great real-world bug catch: always place IS NULL first in searched CASE expressions.',
+        notes: 'Highlight putting IS NULL first in searched CASE expressions.',
         expectedRows: 6
       },
       {
@@ -459,7 +453,7 @@ COURSE.sections.push(
         type: 'challenge',
         database: 'sql_lab',
         hints: [
-          'Use city IN (\'Delhi\', \'Mumbai\') AND age >= 20.',
+          "Use city IN ('Delhi', 'Mumbai') AND age >= 20.",
           'Add ORDER BY age DESC, id ASC and select exact columns: name, city, age.'
         ],
         check: {
@@ -470,7 +464,7 @@ COURSE.sections.push(
         },
         question: 'Verify your query with Check my answer before advancing.',
         answer: "SELECT name, city, age\nFROM students\nWHERE city IN ('Delhi', 'Mumbai') AND age >= 20\nORDER BY age DESC, id ASC;",
-        notes: 'In class, let students run this in Student Mode and inspect the auto-checker feedback if column order or tie-breakers are wrong.'
+        notes: 'Let students run this in Student Mode and inspect the auto-checker feedback.'
       },
       {
         id: 'sql-filter-check',
@@ -501,7 +495,7 @@ COURSE.sections.push(
         type: 'comparison',
         columns: ['Concept / Clause', 'Rule & Behavior', 'Exam Tip'],
         rows: [
-          ['COUNT(*) vs COUNT(col)', 'COUNT(*) counts all rows; COUNT(col) counts only non-NULL values', 'Use COUNT(child.id) in LEFT JOINs to show 0'],
+          ['COUNT(*) vs COUNT(col)', 'COUNT(*) counts all rows; COUNT(col) counts non-NULL values; COUNT(DISTINCT col) counts unique values', 'Use COUNT(child.id) in LEFT JOINs to show 0'],
           ['SUM / AVG / MIN / MAX', 'Ignore NULL inputs; AVG divides by non-NULL count only', 'All-NULL input returns NULL (except COUNT = 0)'],
           ['WHERE', 'Filters individual rows BEFORE grouping; cannot use aggregates', 'Faster: shrinks rows before grouping work'],
           ['HAVING', 'Filters aggregated groups AFTER GROUP BY; can use aggregates', 'Keep row-only checks in WHERE, not HAVING'],
@@ -509,7 +503,7 @@ COURSE.sections.push(
         ],
         question: 'Suppose a table has rows with scores (80, 100, NULL). What do COUNT(*), COUNT(score), SUM(score), and AVG(score) return?',
         answer: 'COUNT(*) = 3, COUNT(score) = 2, SUM(score) = 180, AVG(score) = 90 (180 / 2, NOT 180 / 3).',
-        notes: 'Walk through the (80, 100, NULL) arithmetic example manually on screen before running the live enrollments query next.'
+        notes: 'Walk through the (80, 100, NULL) arithmetic example manually before running the live enrollments query next.'
       },
       {
         id: 'sql-count-null',
@@ -521,7 +515,7 @@ COURSE.sections.push(
         expected: '5 enrollments, 4 graded scores, mean 80.25 ((88+92+76+65)/4), min 65, max 92.',
         question: 'Does AVG(score) divide the sum by 5 enrollments or 4 non-NULL scores?',
         answer: 'It divides by 4 non-NULL scores. Including NULL as zero would lower the average to 64.20.',
-        notes: 'Have students manually compute (88+92+76+65)/4 = 80.25 vs /5 = 64.20 before clicking Run.',
+        notes: 'Have students compute (88+92+76+65)/4 = 80.25 vs /5 = 64.20 before clicking Run.',
         expectedRows: 1,
         expectedValues: [[5, 4, '80.25', '65.00', '92.00']]
       },
@@ -534,22 +528,26 @@ COURSE.sections.push(
         sql: 'SELECT COUNT(*) AS payments, SUM(amount) AS total,\n ROUND(AVG(amount),2) AS mean_payment\nFROM payments;',
         expected: '5 payment rows totaling 14,000.00; average per installment = 2,800.00.',
         question: 'Is 2,800 the average total paid per student?',
-        answer: 'No. 2,800 is the mean per payment event, not per student (we would need GROUP BY student_id first for per-student totals).',
-        notes: 'Highlight the distinction between event-level averages and entity-level averages.',
+        answer: 'No. 2,800 is the mean per payment event, not per student (use GROUP BY student_id for per-student totals).',
+        notes: 'Highlight event-level vs entity-level averages.',
         expectedRows: 1
       },
       {
         id: 'sql-group-by',
-        title: 'Collapse rows into groups with GROUP BY.',
-        lead: 'Every distinct city—including one group for NULL—produces one summary row.',
+        title: 'Collapse rows into groups with GROUP BY & COUNT(DISTINCT).',
+        lead: 'Every distinct city—including one bucket for NULL—produces one summary row.',
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT city, COUNT(*) AS students\nFROM students GROUP BY city ORDER BY city;',
-        expected: 'NULL: 1, Delhi: 2, Kochi: 1, Mumbai: 2 (4 output rows).',
-        question: 'With ONLY_FULL_GROUP_BY enabled, why can you not add ungrouped name to this SELECT?',
-        answer: 'Delhi has two students (Aman and Kabir). Picking one name arbitrarily for a single group row is ambiguous, so strict SQL rejects it.',
-        notes: 'Demonstrate in the editor if helpful by adding ", name" to trigger MariaDB Error 1055 ONLY_FULL_GROUP_BY!',
-        expectedRows: 4
+        expected: 'NULL: 1, Delhi: 2, Kochi: 1, Mumbai: 2 (4 rows). COUNT(DISTINCT city) returns 3 non-NULL cities.',
+        question: 'With ONLY_FULL_GROUP_BY enabled, why can you not add ungrouped name to SELECT city, name, COUNT(*) ... GROUP BY city?',
+        answer: 'Delhi has two students (Aman and Kabir). Picking one name arbitrarily for a single group row is ambiguous, so strict SQL rejects it (Error 1055).',
+        notes: 'Compare Preset 1 (per-city buckets) with Preset 2 (COUNT(DISTINCT city) ignores NULL).',
+        expectedRows: 4,
+        presets: [
+          ['Group by city', 'SELECT city, COUNT(*) AS students FROM students GROUP BY city ORDER BY city;'],
+          ['COUNT(DISTINCT city)', 'SELECT COUNT(*) AS total_rows, COUNT(city) AS with_city, COUNT(DISTINCT city) AS unique_cities FROM students;']
+        ]
       },
       {
         id: 'sql-having',
@@ -561,20 +559,20 @@ COURSE.sections.push(
         expected: 'Delhi (2) and Mumbai (2).',
         question: 'In what logical order does SQL evaluate FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY?',
         answer: 'FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY -> LIMIT.',
-        notes: 'Write that 7-step logical execution sequence on the board or point it out verbally before moving on.',
+        notes: 'Reinforce that WHERE filters rows while HAVING filters finished groups.',
         expectedRows: 2
       },
       {
         id: 'sql-empty-course-count',
-        title: 'Count joined child keys, never COUNT(*).',
-        lead: 'Cloud Security has 0 enrollments. Compare COUNT(e.student_id) vs COUNT(*).',
+        title: 'Preview: count joined child keys, never COUNT(*).',
+        lead: 'Cloud Security has 0 enrollments (previewing LEFT JOIN from Section 2.5). Compare COUNT(e.student_id) vs COUNT(*).',
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT c.course_name, COUNT(e.student_id) AS enrolled\nFROM courses c LEFT JOIN enrollments e ON e.course_id = c.id\nGROUP BY c.id, c.course_name ORDER BY c.id;',
-        expected: 'Cybersecurity: 2, Database Security: 2, Python: 1, Cloud Security: 0.',
+        expected: 'Cybersecurity: 2, Database Security: 2, Python for Security: 1, Cloud Security: 0.',
         question: 'What wrong answer would COUNT(*) display for Cloud Security?',
         answer: 'COUNT(*) counts the NULL-extended LEFT JOIN row and falsely reports 1 enrolled student instead of 0.',
-        notes: 'Classic interview & exam bug—edit COUNT(e.student_id) to COUNT(*) briefly in class to show Cloud Security jumping to 1.',
+        notes: 'Edit COUNT(e.student_id) to COUNT(*) briefly in SQL Studio to show Cloud Security jumping to 1.',
         expectedRows: 4
       },
       {
@@ -627,7 +625,7 @@ COURSE.sections.push(
         diagram: 'join-types',
         question: 'Which joins preserve unmatched rows, and which can multiply rows even when no key matches?',
         answer: 'LEFT, RIGHT, and FULL OUTER preserve unmatched rows with NULL padding; CROSS JOIN multiplies every left row by every right row.',
-        notes: 'Use this interactive diagram as the anchor map as you work through the remaining queries in Section 2.5.'
+        notes: 'Use this interactive diagram as the anchor map for Section 2.5.'
       },
       {
         id: 'sql-inner',
@@ -650,7 +648,7 @@ COURSE.sections.push(
         database: 'sql_lab',
         sql: 'SELECT s.id, s.name, e.course_id\nFROM students s LEFT JOIN enrollments e ON e.student_id = s.id\nORDER BY s.id, e.course_id;',
         expected: '7 rows (5 matched + Meera & Dev padded with NULL); Unmatched-only preset finds Meera and Dev.',
-        question: 'Why is LEFT JOIN ... WHERE right_pk IS NULL a classic way to find orphaned/unmatched records?',
+        question: 'Why is LEFT JOIN ... WHERE right_pk IS NULL a classic way to find unmatched records?',
         answer: 'Outer join preserves unmatched left rows with NULL in the right columns, letting WHERE isolate exactly those missing matches.',
         notes: 'Run both presets and trace how 5 matches + 2 unmatched = 7 rows.',
         expectedRows: 7,
@@ -711,8 +709,8 @@ COURSE.sections.push(
         sql: 'SELECT s1.name AS student_a, s2.name AS student_b, s1.city\nFROM students s1\nJOIN students s2 ON s1.city = s2.city AND s1.id < s2.id\nORDER BY s1.city, s1.id;',
         expected: 'SELF JOIN finds pairs sharing a city (Aman & Kabir in Delhi; Riya & Zoya in Mumbai). CROSS JOIN yields 24 pairs.',
         question: 'Why does the SELF JOIN include AND s1.id < s2.id? And what makes NATURAL JOIN dangerous?',
-        answer: 's1.id < s2.id removes self-pairs (Aman-Aman) and mirror duplicates (Kabir-Aman). NATURAL JOIN silently matches ALL same-named columns, breaking unexpectedly if schemas evolve.',
-        notes: 'Run all three presets! Inspect NATURAL JOIN closely: students JOIN enrollments shares no identical column names here (id vs student_id), producing a Cartesian product (30 rows)!',
+        answer: 's1.id < s2.id removes self-pairs and mirror duplicates. NATURAL JOIN silently matches ALL same-named columns, breaking unexpectedly if columns are renamed or added later.',
+        notes: 'Run all three presets! Inspect NATURAL JOIN: students JOIN enrollments shares no identical column names here (id vs student_id), producing 30 Cartesian rows!',
         expectedRows: 2,
         presets: [
           ['SELF JOIN (city peers)', 'SELECT s1.name AS student_a, s2.name AS student_b, s1.city FROM students s1 JOIN students s2 ON s1.city = s2.city AND s1.id < s2.id ORDER BY s1.city, s1.id;'],
@@ -723,14 +721,14 @@ COURSE.sections.push(
       {
         id: 'sql-full-join',
         title: 'FULL OUTER JOIN emulation in MariaDB.',
-        lead: 'Combine LEFT JOIN and RIGHT JOIN with UNION to keep unmatched students AND unmatched courses together.',
+        lead: 'Combine two mirrored LEFT JOIN branches with UNION so unmatched students AND unmatched courses both appear together.',
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name\nFROM students s\nLEFT JOIN enrollments e ON e.student_id = s.id\nLEFT JOIN courses c ON c.id = e.course_id\nUNION\nSELECT s.id, s.name, c.id, c.course_name\nFROM courses c\nLEFT JOIN enrollments e ON e.course_id = c.id\nLEFT JOIN students s ON s.id = e.student_id\nORDER BY student_id, course_id;',
         expected: '8 rows: all 5 matched enrollments + Meera + Dev + Cloud Security (with NULL student columns).',
         question: 'Why use UNION instead of UNION ALL when emulating FULL OUTER JOIN?',
         answer: 'UNION deduplicates the 5 matched rows that appear in both branches; UNION ALL would double-count matches.',
-        notes: 'Explicitly highlight that MariaDB lacks native FULL OUTER JOIN syntax and uses this clean UNION idiom instead.',
+        notes: 'Highlight that MariaDB lacks a single FULL OUTER JOIN keyword and uses this standard UNION idiom.',
         expectedRows: 8
       },
       {
@@ -741,25 +739,25 @@ COURSE.sections.push(
         diagram: 'set-operations',
         question: 'Why must both SELECT branches have matching column counts and compatible types before running any set operator?',
         answer: 'Set operators stack rows vertically into one unified output table with column names taken from the first SELECT.',
-        notes: 'Compare this diagram directly with the Join diagram from the start of Section 2.5: JOIN widens columns horizontally; UNION/INTERSECT/EXCEPT combine rows vertically.'
+        notes: 'Compare with the Join diagram: JOIN widens columns horizontally; set ops stack rows vertically.'
       },
       {
         id: 'sql-set-operations',
         title: 'Set operations: UNION, UNION ALL, INTERSECT & EXCEPT.',
-        lead: 'Stack compatible query results vertically to combine, deduplicate, intersect, or subtract sets.',
+        lead: 'Stack compatible query results vertically to intersect, subtract, or merge distinct/all sets.',
         type: 'query',
         database: 'sql_lab',
-        sql: 'SELECT id FROM students WHERE id IN (SELECT student_id FROM enrollments)\nINTERSECT\nSELECT id FROM students WHERE id IN (SELECT student_id FROM payments)\nORDER BY id;',
-        expected: 'INTERSECT finds students in both sets (1,2,3,5). EXCEPT finds students enrolled/existing without payments (4,6). UNION vs UNION ALL compare deduplication.',
-        question: 'What two rules must both SELECT queries obey before UNION, INTERSECT, or EXCEPT can run?',
-        answer: 'Both queries must return the exact same number of columns with compatible data types; column names come from the first SELECT.',
-        notes: 'Run all four presets! Note that MariaDB 10.3+ supports INTERSECT and EXCEPT natively (unlike older MySQL 8.0 versions prior to 8.0.31).',
+        sql: 'SELECT student_id FROM enrollments\nINTERSECT\nSELECT student_id FROM payments\nORDER BY student_id;',
+        expected: 'INTERSECT returns 4 student IDs (1,2,3,5). EXCEPT returns unpaid existing students (4=Meera, 6=Dev). UNION yields 4 unique IDs vs UNION ALL yielding 10.',
+        question: 'Why does UNION return 4 rows when enrollments has 5 rows and payments has 5 rows?',
+        answer: 'UNION removes duplicates across both tables (leaving student IDs 1, 2, 3, 5), whereas UNION ALL returns all 10 input rows including repeats.',
+        notes: 'Run all four presets! Note MariaDB 10.3+ supports INTERSECT and EXCEPT natively.',
         expectedRows: 4,
         presets: [
-          ['INTERSECT (both sets)', 'SELECT student_id FROM enrollments INTERSECT SELECT student_id FROM payments ORDER BY student_id;'],
-          ['EXCEPT (students unpaid)', 'SELECT id FROM students EXCEPT SELECT student_id FROM payments ORDER BY id;'],
-          ['UNION (deduplicated)', "SELECT city FROM students WHERE city='Delhi' UNION SELECT city FROM students WHERE city='Mumbai' ORDER BY city;"],
-          ['UNION ALL (keeps duplicates)', "SELECT city FROM students WHERE city='Delhi' UNION ALL SELECT city FROM students WHERE city='Mumbai' ORDER BY city;"]
+          ['INTERSECT (both sets: 4)', 'SELECT student_id FROM enrollments INTERSECT SELECT student_id FROM payments ORDER BY student_id;'],
+          ['EXCEPT (unpaid students: 4, 6)', 'SELECT id FROM students EXCEPT SELECT student_id FROM payments ORDER BY id;'],
+          ['UNION (deduplicated: 4)', 'SELECT student_id FROM enrollments UNION SELECT student_id FROM payments ORDER BY student_id;'],
+          ['UNION ALL (keeps repeats: 10)', 'SELECT student_id FROM enrollments UNION ALL SELECT student_id FROM payments ORDER BY student_id;']
         ]
       },
       {
@@ -794,7 +792,7 @@ COURSE.sections.push(
           ['Scalar Subquery', 'Single value (1 row × 1 col) with =, >, <', 'Runs once; Error 1242 if >1 row returned'],
           ['Multi-Row Subquery', 'Single column list with IN, NOT IN, ANY, ALL', 'Runs once independently (watch NULL in NOT IN!)'],
           ['Derived Table (FROM)', 'Virtual inline table in FROM (...) AS alias', 'Pre-aggregates results before joining (e.g. payments)'],
-          ['Correlated Subquery', 'Inner WHERE references outer table alias (e.g. e.student_id = s.id)', 'Conceptually re-evaluated per outer candidate row'],
+          ['Correlated Subquery', 'Inner WHERE references outer table alias (e.g. s2.city = s.city)', 'Conceptually re-evaluated per outer candidate row'],
           ['EXISTS / NOT EXISTS', 'Boolean presence test returning TRUE as soon as 1 row matches', 'Short-circuits fast and ignores inner NULL traps']
         ],
         question: 'What distinguishes a correlated subquery from an ordinary nested IN subquery?',
@@ -816,7 +814,7 @@ COURSE.sections.push(
       },
       {
         id: 'sql-correlated',
-        title: 'Correlated subqueries with EXISTS & NOT EXISTS.',
+        title: 'Correlated EXISTS & NOT EXISTS subqueries.',
         lead: 'The inner query references s.id from the outer row and stops as soon as one matching row is found.',
         type: 'query',
         database: 'sql_lab',
@@ -845,6 +843,19 @@ COURSE.sections.push(
         expectedRows: 2
       },
       {
+        id: 'sql-correlated-scalar',
+        title: 'Correlated comparison subquery (per-group threshold).',
+        lead: 'Find students who are older than the average age of their own city (Delhi avg = 23.5, Mumbai avg = 21.0).',
+        type: 'query',
+        database: 'sql_lab',
+        sql: 'SELECT s.name, s.city, s.age\nFROM students s\nWHERE s.age > (\n  SELECT AVG(s2.age) FROM students s2 WHERE s2.city = s.city\n)\nORDER BY s.id;',
+        expected: 'Returns Aman (25 in Delhi > 23.5) and Zoya (23 in Mumbai > 21.0); 2 rows.',
+        question: 'Why can you not highlight the inner SELECT AVG(s2.age) ... WHERE s2.city = s.city and run it alone?',
+        answer: 'Because s.city refers to the outer students alias s! Inside a correlated subquery, the inner AVG recomputes dynamically for each candidate outer student city.',
+        notes: 'Classic textbook exam example of a non-EXISTS correlated subquery: compare it directly against the overall scalar subquery right before it!',
+        expectedRows: 2
+      },
+      {
         id: 'sql-any-all',
         title: 'Quantified comparisons: ANY and ALL.',
         lead: 'Compare scores against course 101’s known scores (65 and 88).',
@@ -868,71 +879,72 @@ COURSE.sections.push(
         type: 'comparison',
         columns: ['View Type / Clause', 'Characteristics', 'Updatable? / Usage'],
         rows: [
-          ['Simple View', 'Single base table, no GROUP BY, DISTINCT, HAVING, or aggregates', 'Usually YES (writes pass through to base table)'],
-          ['Complex View', 'Multi-table JOINs, aggregates, GROUP BY, UNION, or subqueries', 'NO (Read-only reporting & security abstraction)'],
+          ['Simple View', 'Single base table, no GROUP BY, DISTINCT, HAVING, or aggregates', 'YES (writes pass cleanly through to base table)'],
+          ['Complex View', 'Aggregates, GROUP BY, DISTINCT, UNION, subqueries, or TEMPTABLE joins', 'NO (Read-only reporting & security abstraction)'],
           ['WITH CHECK OPTION', 'Rejects INSERT/UPDATE through view if new row fails view’s WHERE rule', 'Prevents rows vanishing out of the view (Error 1369)'],
           ['Virtual vs Materialized', 'Virtual recomputes dynamically; Materialized stores snapshot rows physically', 'MariaDB views are Virtual; summary tables emulate Materialized'],
-          ['ALGORITHM (MERGE/TEMPTABLE)', 'MERGE folds view SQL into caller query; TEMPTABLE builds temp result first', 'TEMPTABLE needed when GROUP BY/DISTINCT used'],
+          ['ALGORITHM (MERGE/TEMPTABLE)', 'MERGE folds view SQL into caller query; TEMPTABLE builds temp result first', 'TEMPTABLE required when GROUP BY/aggregates used'],
           ['SQL SECURITY', 'DEFINER (runs with creator’s rights) vs INVOKER (caller’s rights)', 'INVOKER prevents unintended privilege escalation']
         ],
         question: 'Why do DBAs expose a view instead of granting direct SELECT on base tables?',
         answer: 'Views hide sensitive columns (salary, passwords), simplify complex joins, and provide Logical Data Independence when underlying schemas refactor.',
-        notes: 'Cover every bullet of "View and its types" from the MSCNS406 syllabus clearly here, then create both a Complex view and a WITH CHECK OPTION Simple view next.'
+        notes: 'Cover every bullet of "View and its types" from the MSCNS406 syllabus clearly before creating views live.'
       },
       {
         id: 'sql-create-view',
-        title: 'Complex (read-only) views for reusable joins.',
-        lead: 'Create course_roster joining students, enrollments, and courses; inspect live data through it.',
+        title: 'Reusable joined & aggregated views.',
+        lead: 'Create course_roster (joined view) and inspect its rows via Inspect in SQL Studio.',
         type: 'query',
         database: 'sql_lab',
         sql: 'CREATE OR REPLACE SQL SECURITY INVOKER VIEW course_roster AS\nSELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name, e.score\nFROM students s\nJOIN enrollments e ON e.student_id=s.id\nJOIN courses c ON c.id=e.course_id;',
-        expected: 'Complex view created (multi-table join). Clicking Inspect result displays 5 rows.',
-        question: 'Can you INSERT a brand-new row directly into this 3-table joined course_roster view?',
-        answer: 'Generally no—views using joins across multiple tables, GROUP BY, DISTINCT, or aggregates are Complex / Non-Updatable views.',
-        notes: 'Point out SQL SECURITY INVOKER (caller privileges apply) vs DEFINER (covered deeply in Unit 3).',
+        expected: 'View created. Clicking Inspect displays 5 rows from course_roster.',
+        question: 'Why is a GROUP BY view like v_course_summary completely non-updatable compared to a single-table view?',
+        answer: 'An aggregated row collapses multiple students into COUNT(*) / AVG(score), so there is no unique 1-to-1 base row to receive an INSERT or UPDATE.',
+        notes: 'Point out SQL SECURITY INVOKER (caller privileges apply) vs DEFINER.',
         inspectSql: 'SELECT * FROM course_roster ORDER BY student_id, course_id;'
       },
       {
         id: 'sql-view-types',
-        title: 'View types: Simple vs Complex & WITH CHECK OPTION.',
-        lead: 'A Simple single-table view can accept updates—and WITH CHECK OPTION prevents inserting/updating rows outside its WHERE rule!',
+        title: 'Simple updatable view & WITH CHECK OPTION.',
+        lead: 'A Simple single-table view accepts updates—and WITH CHECK OPTION prevents modifying rows outside its WHERE rule!',
         type: 'query',
         database: 'sql_lab',
         sql: "CREATE OR REPLACE VIEW v_delhi_students AS\nSELECT id, name, email, age, city, joined_on\nFROM student_edits\nWHERE city = 'Delhi'\nWITH CHECK OPTION;",
-        expected: 'Simple updatable view created. Inspecting shows Delhi students; attempting to move Aman to Pune through the view fails with Error 1369!',
+        expected: 'Simple updatable view created. Valid age update succeeds; moving Aman out of Delhi fails with Error 1369!',
         question: 'What is the difference between a Virtual View (standard in MariaDB) and a Materialized View?',
-        answer: 'A Virtual View stores only the query definition and recomputes on read; a Materialized View (supported in some DBMSs or emulated via summary tables) stores precomputed rows physically on disk.',
-        notes: 'Run presets in order: 1) Create view -> 2) Update within rule -> 3) Try breaking the filter (Error 1369 CHECK OPTION failed) -> 4) Inspect v_delhi_students.',
+        answer: 'A Virtual View stores only the query definition and recomputes on read; a Materialized View stores precomputed snapshot rows physically on disk.',
+        notes: 'Run presets in order: 1) Create view -> 2) Update within rule -> 3) Try breaking filter (1369) -> click Inspect to verify.',
         prepare: 'reset-edit-copy',
         editCopy: true,
         inspectSql: 'SELECT * FROM v_delhi_students ORDER BY id;',
         presets: [
-          ['1. Inspect v_delhi_students', 'SELECT * FROM v_delhi_students ORDER BY id;'],
+          ['1. Create view (WITH CHECK OPTION)', "CREATE OR REPLACE VIEW v_delhi_students AS SELECT id, name, email, age, city, joined_on FROM student_edits WHERE city = 'Delhi' WITH CHECK OPTION;"],
           ['2. Valid update inside view', 'UPDATE v_delhi_students SET age = 26 WHERE id = 1;'],
           ['3. Blocked outside-filter edit (1369)', "UPDATE v_delhi_students SET city = 'Pune' WHERE id = 1;"]
         ]
       },
       {
         id: 'sql-view-alter-drop',
-        title: 'Inspect view definitions and types in metadata.',
-        lead: 'Use INFORMATION_SCHEMA.VIEWS or SHOW CREATE VIEW to distinguish BASE TABLEs from VIEWs and drop temporary views.',
+        title: 'Inspect, ALTER VIEW, and DROP VIEW.',
+        lead: 'Check INFORMATION_SCHEMA.VIEWS to compare Simple Updatable (IS_UPDATABLE=YES) vs Complex Non-Updatable (NO for v_course_summary), alter a view, and drop temporary views.',
         type: 'query',
         database: 'sql_lab',
         prepare: 'prepare-course-roster',
-        sql: "SELECT TABLE_NAME, VIEW_DEFINITION, CHECK_OPTION, IS_UPDATABLE, SECURITY_TYPE\nFROM information_schema.VIEWS\nWHERE TABLE_SCHEMA = 'sql_lab';",
+        sql: "SELECT TABLE_NAME, CHECK_OPTION, IS_UPDATABLE, SECURITY_TYPE\nFROM information_schema.VIEWS\nWHERE TABLE_SCHEMA = 'sql_lab'\nORDER BY TABLE_NAME;",
         presets: [
-          ['Inspect VIEWS catalog', "SELECT TABLE_NAME, CHECK_OPTION, IS_UPDATABLE, SECURITY_TYPE FROM information_schema.VIEWS WHERE TABLE_SCHEMA = 'sql_lab';"],
-          ['SHOW FULL TABLES (BASE vs VIEW)', 'SHOW FULL TABLES;'],
-          ['Drop v_delhi_students', 'DROP VIEW IF EXISTS v_delhi_students;']
+          ['1. Inspect VIEWS catalog', "SELECT TABLE_NAME, CHECK_OPTION, IS_UPDATABLE, SECURITY_TYPE FROM information_schema.VIEWS WHERE TABLE_SCHEMA = 'sql_lab' ORDER BY TABLE_NAME;"],
+          ['2. ALTER VIEW v_course_summary', 'ALTER ALGORITHM=TEMPTABLE SQL SECURITY INVOKER VIEW v_course_summary AS SELECT c.id AS course_id, c.course_name, c.fee, COUNT(e.student_id) AS enrolled_count, ROUND(AVG(e.score), 1) AS avg_score FROM courses c LEFT JOIN enrollments e ON e.course_id = c.id GROUP BY c.id, c.course_name, c.fee;'],
+          ['3. SHOW FULL TABLES (BASE vs VIEW)', 'SHOW FULL TABLES;'],
+          ['4. Drop v_delhi_students', 'DROP VIEW IF EXISTS v_delhi_students;']
         ],
-        expected: 'Lists sql_lab views along with IS_UPDATABLE (NO for complex course_roster) and SECURITY_TYPE.',
+        expected: 'v_course_summary reports IS_UPDATABLE = NO (Complex GROUP BY + TEMPTABLE view), while v_delhi_students / course_roster report YES.',
         question: 'What are MariaDB’s view ALGORITHM options (MERGE vs TEMPTABLE)?',
         answer: 'MERGE folds the view query directly into the caller’s SQL; TEMPTABLE materializes view rows into an internal temporary table first (required for GROUP BY/aggregates).',
-        notes: 'Click Prepare example if course_roster was not created earlier. Also try SHOW FULL TABLES.'
+        notes: 'Click Prepare if views were not created earlier; run presets 1–4 to inspect, alter, and clean up.'
       },
       {
         id: 'sql-subquery-check',
-        title: 'Checkpoint: querying through views and EXISTS.',
+        title: 'Checkpoint: filtering with EXISTS and views.',
         lead: 'Choose the best pattern for identifying students with zero enrollments.',
         type: 'quiz',
         options: [
@@ -942,9 +954,9 @@ COURSE.sections.push(
         ],
         correct: 0,
         feedback: 'Correlated NOT EXISTS clearly expresses non-existence without NULL traps.',
-        question: 'Student task: query course_roster (create/prepare if needed) for scores >= 80.',
+        question: 'Student task: query v_course_summary (Prepare first if needed) or course_roster for scores >= 80.',
         answer: 'SELECT name, course_name, score FROM course_roster WHERE score >= 80 ORDER BY student_id, course_id;',
-        notes: 'Summarize subquery categories (scalar, IN, correlated, ANY/ALL) and view types (simple, complex, check-option, virtual vs materialized).'
+        notes: 'Summarize subquery categories (scalar, IN, correlated, ANY/ALL) and view types (simple, complex, WITH CHECK OPTION).'
       }
     ]
   },
@@ -966,7 +978,7 @@ COURSE.sections.push(
         ],
         question: 'Do scalar functions in SELECT (like UPPER(name)) modify the stored values inside the table?',
         answer: 'No. SELECT expressions compute derived output values only; stored rows only change via UPDATE.',
-        notes: 'Use this overview card to group all built-in functions cleanly before stepping through the three live SQL function demos.'
+        notes: 'Group all built-in function categories here before running the live numeric, string, and date queries.'
       },
       {
         id: 'sql-numeric-functions',
@@ -978,7 +990,7 @@ COURSE.sections.push(
         expected: 'Demonstrates ROUND, CEIL, FLOOR, MOD, and ABS across all 5 payments.',
         question: 'How do ROUND(12.678, 1) and TRUNCATE(12.678, 1) differ?',
         answer: 'ROUND rounds to nearest (12.7), whereas TRUNCATE chops off digits beyond the decimal places (12.6).',
-        notes: 'Switch to the "Math toolbox" preset to demonstrate SQRT, POWER, SIGN, and TRUNCATE as well.',
+        notes: 'Switch to "Math toolbox" preset to demonstrate POWER, SQRT, TRUNCATE, and SIGN.',
         expectedRows: 5,
         presets: [
           ['Payments math', 'SELECT id AS payment_id, amount, ROUND(amount * 1.18, 2) AS with_gst, CEIL(amount / 1500) AS ceiling_slots, FLOOR(amount / 1500) AS floor_slots, MOD(amount, 1500) AS remainder, ABS(-42) AS abs_demo FROM payments ORDER BY id;'],
@@ -987,46 +999,38 @@ COURSE.sections.push(
       },
       {
         id: 'sql-text-functions',
-        title: 'Built-in string functions.',
-        lead: 'Format, slice, trim, measure, and replace text in query outputs without mutating stored rows.',
+        title: 'Built-in string & NULL-handling functions.',
+        lead: 'Format, slice, trim, replace text, and normalize missing values with COALESCE / NULLIF.',
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, UPPER(name) AS upper_name, LOWER(name) AS lower_name,\n CHAR_LENGTH(name) AS chars, SUBSTRING(email, 1, 6) AS email_prefix,\n CONCAT(name, ' <', email, '>') AS formatted_contact\nFROM students ORDER BY id;",
-        expected: 'Six formatted rows; stored table values remain unchanged.',
-        question: 'Why prefer CHAR_LENGTH() over LENGTH() when dealing with UTF-8 strings?',
-        answer: 'LENGTH() counts bytes (multi-byte characters count >1), whereas CHAR_LENGTH() counts actual characters.',
-        notes: 'Run the second preset to show TRIM and REPLACE cleanup patterns.',
+        expected: 'Six formatted rows; COALESCE(NULLIF(city, ""), "Not supplied") displays clean fallback text for Dev without modifying base rows.',
+        question: 'Why prefer CHAR_LENGTH() over LENGTH() when dealing with UTF-8 strings? And does COALESCE replace empty string ""?',
+        answer: 'CHAR_LENGTH() counts characters whereas LENGTH() counts bytes. COALESCE only replaces NULL, so combine COALESCE(NULLIF(col, ""), fallback) to handle both.',
+        notes: 'Step through all 3 presets: Student strings, Trim & replace, and COALESCE / NULLIF.',
         expectedRows: 6,
         presets: [
           ['Student strings', "SELECT name, UPPER(name) AS upper_name, LOWER(name) AS lower_name, CHAR_LENGTH(name) AS chars, SUBSTRING(email, 1, 6) AS email_prefix, CONCAT(name, ' <', email, '>') AS formatted_contact FROM students ORDER BY id;"],
-          ['Trim & replace', "SELECT TRIM('  DBMS Lab  ') AS trimmed, REPLACE('Database Security', 'Security', 'Admin') AS replaced;"]
+          ['Trim & replace', "SELECT TRIM('  DBMS Lab  ') AS trimmed, REPLACE('Database Security', 'Security', 'Admin') AS replaced;"],
+          ['COALESCE & NULLIF', "SELECT name, COALESCE(NULLIF(city, ''), 'Not supplied') AS city_label FROM students ORDER BY id;"]
         ]
       },
       {
         id: 'sql-date-functions',
-        title: 'Built-in date functions.',
-        lead: 'Extract calendar parts, shift intervals, and measure elapsed days deterministically.',
+        title: 'Built-in date & time functions.',
+        lead: 'Extract calendar parts, shift intervals, format dates, and query current server time.',
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, joined_on,\n YEAR(joined_on) AS join_year,\n MONTHNAME(joined_on) AS join_month,\n DATE_FORMAT(joined_on, '%d %b %Y') AS formatted_date,\n DATE_ADD(joined_on, INTERVAL 30 DAY) AS review_due,\n DATEDIFF('2026-09-01', joined_on) AS days_since_joining\nFROM students ORDER BY id;",
         expected: 'Aman: 62 days, Riya: 60, Kabir: 53, Meera: 48, Zoya: 31, Dev: 22.',
-        question: 'Why do we pass literal "2026-09-01" instead of CURRENT_DATE in this teaching script?',
-        answer: 'A fixed reference date guarantees deterministic classroom results every semester.',
-        notes: 'Remind students that LAST_DAY(), NOW(), and CURRENT_TIMESTAMP() work identically in real reports.',
-        expectedRows: 6
-      },
-      {
-        id: 'sql-coalesce',
-        title: 'Replace NULL cleanly with COALESCE.',
-        lead: 'COALESCE returns the first non-NULL expression in its argument list.',
-        type: 'query',
-        database: 'sql_lab',
-        sql: "SELECT name, COALESCE(city, 'Not supplied') AS city_label\nFROM students ORDER BY id;",
-        expected: 'Dev shows "Not supplied" while the underlying column remains NULL.',
-        question: 'Does COALESCE(city, "Unknown") replace an empty string ""?',
-        answer: 'No. "" is not NULL; combine NULLIF(city, "") inside COALESCE(NULLIF(city, ""), "Unknown") to normalize both.',
-        notes: 'Share that COALESCE(NULLIF(...)) trick—very useful for dirty student/CSV imports.',
-        expectedRows: 6
+        question: 'Why pass literal "2026-09-01" instead of CURDATE() in deterministic classroom tests?',
+        answer: 'A fixed reference date guarantees reproducible row counts every semester; CURDATE() / NOW() work identically for live dashboards.',
+        notes: 'Also click "Live clock & DATE_SUB" to demonstrate NOW(), CURDATE(), and relative intervals.',
+        expectedRows: 6,
+        presets: [
+          ['Student join dates', "SELECT name, joined_on, YEAR(joined_on) AS join_year, MONTHNAME(joined_on) AS join_month, DATE_FORMAT(joined_on, '%d %b %Y') AS formatted_date, DATE_ADD(joined_on, INTERVAL 30 DAY) AS review_due, DATEDIFF('2026-09-01', joined_on) AS days_since_joining FROM students ORDER BY id;"],
+          ['Live clock & DATE_SUB', 'SELECT CURDATE() AS today, NOW() AS current_ts, DATE_SUB(CURDATE(), INTERVAL 7 DAY) AS one_week_ago, LAST_DAY(CURDATE()) AS month_end;']
+        ]
       },
       {
         id: 'sql-payment-report',
@@ -1038,7 +1042,7 @@ COURSE.sections.push(
         expected: 'Aman 6000, Riya 4000, Kabir 2000, Meera 0, Zoya 1000, Dev 0.',
         question: 'What happens if someone joins students -> enrollments -> payments and sums payments directly?',
         answer: 'Aman has 2 enrollments and 2 payments, producing 4 rows and falsely doubling his paid total to 12,000!',
-        notes: 'Fan-out join bug: one of the highest-value SQL lessons for real analytics work.',
+        notes: 'Highlight fan-out join multiplication: pre-aggregate child branches before joining.',
         expectedRows: 6
       },
       {
@@ -1057,25 +1061,9 @@ COURSE.sections.push(
           orderMatters: true,
           expectedSql: 'SELECT c.id, c.course_name, COUNT(e.student_id) AS enrolled, COUNT(e.score) AS graded, ROUND(AVG(e.score),2) AS mean_score FROM courses c LEFT JOIN enrollments e ON e.course_id=c.id GROUP BY c.id, c.course_name ORDER BY c.id;'
         },
-        question: 'Write your query against sql_lab and verify it with Check my answer.',
+        question: 'Write your query against sql_lab, verify it with Check my answer, then advance to Unit 3.',
         answer: 'SELECT c.id, c.course_name, COUNT(e.student_id) AS enrolled,\n       COUNT(e.score) AS graded, ROUND(AVG(e.score), 2) AS mean_score\nFROM courses c\nLEFT JOIN enrollments e ON e.course_id = c.id\nGROUP BY c.id, c.course_name\nORDER BY c.id;\n\nExpected: 101 -> 2, 2, 76.50; 102 -> 2, 1, 76.00; 103 -> 1, 1, 92.00; 104 -> 0, 0, NULL.',
-        notes: 'Walk through the expected output row-by-row after students verify their query; reinforce why Cloud Security shows NULL mean_score rather than 0.'
-      },
-      {
-        id: 'sql-complete',
-        title: 'Unit 2 complete. Ready for MariaDB Administration.',
-        lead: 'You can now define schemas, enforce constraints, join across tables, build views, and verify query meaning.',
-        type: 'quiz',
-        options: [
-          'Any query that executes without syntax errors is correct',
-          'A query is correct only when its filters, joins, NULL handling, and row counts match the real question',
-          'Every report must start with SELECT *'
-        ],
-        correct: 1,
-        feedback: 'Silent logical bugs (fan-out sums, COUNT(*) on outer joins, NULL traps) matter far more than syntax errors.',
-        question: 'Exit ticket: explain the difference between WHERE and HAVING, and between UNION and INTERSECT.',
-        answer: 'WHERE filters rows before grouping; HAVING filters groups after aggregation. UNION combines rows from either query; INTERSECT keeps only rows present in both.',
-        notes: 'Press Next to launch Unit 3: MariaDB Concepts, Security & Authentication.'
+        notes: 'Walk through Cloud Security showing 0, 0, NULL after students pass, then click Unit 3 → in the dock to start MariaDB Concepts, Security & Authentication.'
       }
     ]
   }

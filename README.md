@@ -2,10 +2,10 @@
 
 A self-contained, cross-platform **Database Administration and Security** teaching console and student self-practice lab powered by **MariaDB 11.4** in Docker.
 
-- **All 4 syllabus units (MSCNS406) ready:** 30 sections, 175+ teaching steps, interactive architecture/storage/locking SVG diagrams, and real MariaDB execution.
+- **All 4 syllabus units (MSCNS406) ready:** 30 sections, 157 teaching steps, interactive architecture/storage/locking SVG diagrams, and real MariaDB execution.
 - **Two-fold design:**
-  - **Instructor Mode (Projector):** Linear step navigation, projector-scaled Presentation mode, private **Pop-out Speaker Notes** window (`BroadcastChannel` synced), and scoped dataset resets.
-  - **Student Practice Mode:** Hides teacher-only text, unlocks progressive **Hints**, inline **Live Schema Reference**, saved drafts & query history, and **Check my answer** auto-verification.
+  - **Instructor Mode (Projector):** Clean **Zen Stage** layout with a compact **Floating Dock** (`←`, `SQL Studio`, `Notes`, `Present`, `Next →`), slide-over **Curriculum Drawer** (`M`), **`⌘K` Command Palette**, **Split SQL Studio** (`S`) across all 10 classroom and system-catalog databases, **`Paper` / `Dark`** theme toggle, projector-scaled `Present` mode, private **Pop-out Speaker Notes** window (`BroadcastChannel` synced), and scoped lab resets (`⌘K → Reset Current Lab` / `Restore edit copy`).
+  - **Student Practice Mode:** Switch to **Student** to hide instructor-only chrome, open **SQL Studio** (`S`) with an inline **Schema** drawer and **`Recent…`** history across all 10 unit/catalog databases, and verify SQL challenges with **`Hint 1 / 2`** and **`✓ Check my answer`**.
 - **Runs everywhere:** Identical Docker workflow on **Windows, Linux, and macOS** — zero host database or Node/PHP installations required.
 
 ---
@@ -32,7 +32,7 @@ Once ready, open:
 
 ### Connect with DBeaver (Practice & Exams)
 
-Click **Connect DBeaver** in the console top bar for 1-click copyable credentials, the downloadable `dbms-classroom-ca.pem` TLS certificate, and downloadable `.sql` practice worksheets (`web/worksheets/`):
+Click **DBeaver** in the console top bar (or open **`⌘K` → Connect DBeaver**) for 1-click copyable credentials, the downloadable `dbms-classroom-ca.pem` TLS certificate, and downloadable `.sql` practice worksheets (`web/worksheets/`):
 
 | Setting | Value |
 |---|---|
@@ -58,15 +58,15 @@ Click **Connect DBeaver** in the console top bar for 1-click copyable credential
 ## Using the Two Modes
 
 ### For Instructors (Classroom Teaching)
-- Switch **Instructor / Student Practice** in the top bar (defaults to **Instructor**).
-- Open **Teacher notes → Pop out speaker window ↗** on your laptop display, then click **Present** on the classroom projector so speaker notes never appear on screen.
-- Use **Next / Previous** or `←` / `→` arrow keys to teach straight through all four units.
-- Use scoped resets (**Reset lab_students**, **Restore edit copy**, **Reset Unit 2 / 3 / 4**) between lectures without deleting Docker volumes.
+- Switch **Instructor / Student** in the top bar (defaults to **Instructor**); switch themes anytime with **Dark / Paper**.
+- Open **Notes → Pop out speaker window ↗** on your laptop display, then click **Present** in the floating dock so speaker notes never appear on the projector screen.
+- Press **Next →** / **Previous (`←`)** (or arrow keys), press **`M`** for the **Curriculum Drawer**, **`S`** to toggle **Split SQL Studio** (covering all 10 classroom & catalog databases), or **`⌘K`** for instant search, **Exam Cheat Sheet**, **Open Adminer ↗**, and **Reset Current Lab**.
+- Use contextual reset actions inside **SQL Studio** (or **Restore edit copy** / **`⌘K → Reset Current Lab`**) between classes without deleting Docker volumes.
 
 ### For Students (Self-Practice)
-- Switch to **Student Practice** in the top bar.
-- Open **SQL workspace** anytime to practice with a live **Schema Reference** sidebar and recent **Query History**.
-- On challenge steps, use **Show hint 1 / 2** and **Check my answer** to validate your SQL against MariaDB automatically and track completed checkpoints.
+- Switch to **Student** in the top bar.
+- Press **`S`** (or click **SQL Studio**) anytime to practice across all 10 databases (`college_demo`, `classroom_practice`, `sql_lab`, `security_lab`, `perf_lab`, `ops_lab`, `backup_lab`, `information_schema`, `performance_schema`, `mysql`) with an inline **Schema** drawer and **`Recent…`** query history.
+- On challenge steps, use **Hint 1 / 2** and **✓ Check my answer** to validate your SQL against MariaDB automatically and track completed checkpoints.
 
 ---
 

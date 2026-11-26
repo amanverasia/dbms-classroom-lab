@@ -19,7 +19,7 @@ COURSE.sections.push(
           ['1. List databases', 'SHOW DATABASES;'],
           ['2. Create database', 'CREATE DATABASE IF NOT EXISTS demo_scratch;'],
           ['3. Select database (USE)', 'USE demo_scratch;'],
-          ['4. Create table', 'CREATE TABLE demo_items (id INT PRIMARY KEY AUTO_INCREMENT, label VARCHAR(80) NOT NULL, qty INT DEFAULT 1);'],
+          ['4. Create table', 'CREATE TABLE IF NOT EXISTS demo_items (id INT PRIMARY KEY AUTO_INCREMENT, label VARCHAR(80) NOT NULL, qty INT DEFAULT 1);'],
           ['5. List table names', 'SHOW TABLES;'],
           ['6. Insert data', "INSERT INTO demo_items (label, qty) VALUES ('TLS Cert', 2), ('Audit Rule', 5);"],
           ['7. Alter table', 'ALTER TABLE demo_items ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1;'],
@@ -30,25 +30,25 @@ COURSE.sections.push(
         ],
         expected: 'Demonstrates every core MariaDB CRUD operation in sequence while USE demo_scratch persists across queries.',
         question: 'Why did USE demo_scratch persist into step 4 here, unlike Units 1 and 2?',
-        answer: 'This panel uses a persistent named connection (unit3), just like the mariadb CLI client, rather than opening a fresh connection per statement.',
-        notes: 'Walk through presets 1–11 cleanly; notice the connection ID badge stays constant across requests. Reset Unit 3 removes demo_scratch if stopped mid-way.'
+        answer: 'SQL Studio uses a persistent named connection (unit3), just like the mariadb CLI client, rather than opening a fresh connection per statement.',
+        notes: 'Walk through presets 1–11 cleanly; notice the Session ID pill stays constant across requests. Reset Unit 3 removes demo_scratch if stopped mid-way.'
       },
       {
         id: 'u3-client-config',
         title: 'Configuring client connections to MariaDB.',
-        lead: 'Clients connect over TCP/IP sockets or local Unix domain sockets using host, port, credentials, and TLS settings.',
+        lead: 'Clients connect over TCP/IP sockets or local Unix domain sockets using host, port, credentials, option files, and TLS.',
         type: 'comparison',
-        columns: ['Setting', 'Meaning & Classroom Value', 'Why it matters'],
+        columns: ['Setting / File', 'Example Value & CLI Usage', 'Why it matters'],
         rows: [
-          ['port / bind-address', '3306 inside Docker (0.0.0.0 container; 127.0.0.1:3307 on host)', 'Restricting bind-address to 127.0.0.1 prevents direct Internet exposure'],
-          ['socket', '/run/mysqld/mysqld.sock (Unix/Linux local)', 'Fast local IPC when client runs on the same host (matches @localhost)'],
-          ['max_connections', '100 concurrent client connections allowed', 'Prevents resource exhaustion from runaway app pools'],
-          ['default-character-set', 'utf8mb4', 'Ensures client and server agree on full Unicode encoding'],
-          ['[client] in my.cnf', '~/.my.cnf or /etc/mysql/conf.d/*.cnf', 'Avoids putting plaintext -p passwords in shell history or process lists']
+          ['CLI TCP + TLS connect', 'mariadb -h 127.0.0.1 -P 3307 -u dba_lab -p --ssl-ca=dbms-classroom-ca.pem', 'Direct encrypted client connection from Windows/Linux/macOS'],
+          ['port / bind-address', '3306 container (127.0.0.1:3307 host); bind-address=127.0.0.1 in my.cnf', 'Restricting bind-address prevents direct public Internet exposure'],
+          ['socket', '/run/mysqld/mysqld.sock (Linux/macOS local IPC)', 'Fast local IPC matching @localhost without TCP overhead'],
+          ['max_connections', '151 default in classroom MariaDB (configurable in my.cnf)', 'Prevents RAM exhaustion from runaway application pools'],
+          ['[client] option file', '~/.my.cnf with [client] host/user/password & chmod 600', 'Avoids leaking plaintext -p passwords in shell history or ps aux']
         ],
         question: 'Why is passing -pMyPassword directly on a Linux command line unsafe?',
         answer: 'Other local users running ps aux can read command-line arguments. Use interactive -p or protected ~/.my.cnf option files (chmod 600).',
-        notes: 'Mention that Windows/Mac clients like DBeaver connecting from outside Docker to 127.0.0.1:3307 always use TCP/IP (and can import dbms-classroom-ca.pem from the Connect DBeaver modal).'
+        notes: 'Point out that students can open the DBeaver button (or ⌘K -> Connect DBeaver) to copy 127.0.0.1:3307 credentials and download dbms-classroom-ca.pem.'
       },
       {
         id: 'u3-connection-inspect',
@@ -63,10 +63,10 @@ COURSE.sections.push(
           ['Thread counters', "SHOW GLOBAL STATUS WHERE Variable_name IN ('Threads_connected','Threads_running','Max_used_connections','Aborted_connects');"],
           ['Timeout variables', "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('wait_timeout','interactive_timeout','connect_timeout','net_read_timeout');"]
         ],
-        expected: 'Displays the matched account (dba_lab@%), port 3306, bind address, and connection thread counters.',
+        expected: 'Displays matched account (dba_lab@%), port 3306, NULL bind_addr (meaning all container interfaces), and thread counters.',
         question: 'What causes Aborted_connects to climb on an exposed database server?',
         answer: 'Failed authentication attempts, malformed handshakes, TLS rejections, or network probes failing before login completes.',
-        notes: 'Point out the difference between USER() (your username + client IP/hostname) and CURRENT_USER() (the matching user@host grant row).'
+        notes: 'Point out the difference between USER() (your username + client IP) and CURRENT_USER() (the matching user@host grant row), and why bind_address is NULL inside Docker bridge networking.'
       },
       {
         id: 'u3-ops-check',
@@ -101,7 +101,7 @@ COURSE.sections.push(
         expected: 'InnoDB is DEFAULT with Transactions=YES, XA=YES, Savepoints=YES; Aria, MEMORY, and CSV serve specialized roles.',
         question: 'Why does InnoDB serve as the default engine instead of MEMORY or MyISAM/Aria?',
         answer: 'InnoDB supports full ACID transactions, row-level locking, foreign key enforcement, MVCC snapshots, and crash recovery via redo/undo logs.',
-        notes: 'Explain briefly when Aria (crash-safe internal temp tables) or MEMORY (transient fast lookup) appear in SHOW ENGINES.'
+        notes: 'Explain when Aria (crash-safe internal temp tables) or MEMORY (transient fast lookup) appear in SHOW ENGINES.'
       },
       {
         id: 'u3-innodb-diagram',
@@ -118,22 +118,22 @@ COURSE.sections.push(
         title: 'Inspect real MariaDB storage files on disk.',
         lead: 'Read the live /var/lib/mysql directory inside the Docker volume alongside INFORMATION_SCHEMA table metrics.',
         type: 'storage-lab',
-        question: 'Why does every InnoDB table (like students or activity_events) have its own .ibd file?',
-        answer: 'Because innodb_file_per_table = ON stores each table’s clustered B+Tree and secondary indexes in its own tablespace file so space can be reclaimed on DROP/OPTIMIZE.',
-        notes: 'Click Refresh Storage Explorer and compare the size of perf_lab/activity_events.ibd (25,000 rows) against college_demo/students.ibd (5 rows).'
+        question: 'Why does every InnoDB table have its own .ibd file, alongside .frm and db.opt files per schema directory?',
+        answer: 'innodb_file_per_table=ON puts each table’s clustered B+Tree + indexes into its own .ibd tablespace so drops/optimizes reclaim OS disk space; .frm holds table structure and db.opt holds database charset defaults.',
+        notes: 'Click Refresh storage inspection and compare perf_lab/activity_events.ibd (25,000 rows) against college_demo/students.ibd (5 rows).'
       },
       {
         id: 'u3-innodb-vars',
-        title: 'Inspect InnoDB page and log parameters.',
-        lead: 'Examine live InnoDB configuration variables controlling page size, tablespaces, and durability.',
+        title: 'Inspect InnoDB page, doublewrite, and log parameters.',
+        lead: 'Examine live InnoDB configuration variables controlling 16 KB pages, doublewrite safety, redo logs, and durability.',
         type: 'query',
         persona: 'dba_lab',
         database: 'information_schema',
-        sql: "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('datadir','innodb_file_per_table','innodb_page_size','innodb_data_file_path','innodb_flush_log_at_trx_commit','innodb_undo_tablespaces');",
-        expected: 'Shows /var/lib/mysql/, innodb_file_per_table=ON, innodb_page_size=16384 (16 KB), and flush_log_at_trx_commit=1.',
+        sql: "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('datadir','innodb_file_per_table','innodb_page_size','innodb_data_file_path','innodb_doublewrite','innodb_log_file_size','innodb_flush_log_at_trx_commit');",
+        expected: 'Shows /var/lib/mysql/, innodb_file_per_table=ON, innodb_page_size=16384 (16 KB), doublewrite=ON, redo log file size, and flush_log_at_trx_commit=1.',
         question: 'What trade-off happens if someone changes innodb_flush_log_at_trx_commit from 1 to 2 or 0?',
         answer: '1 flushes and fsyncs redo log on every COMMIT (full ACID durability); 0/2 improve throughput slightly at the risk of losing up to ~1 second of commits in an OS crash.',
-        notes: 'Keep innodb_flush_log_at_trx_commit=1 as the standard safe production baseline.'
+        notes: 'Point out innodb_doublewrite=ON prevents torn 16 KB page writes during crashes.'
       },
       {
         id: 'u3-storage-check',
@@ -155,55 +155,55 @@ COURSE.sections.push(
   },
   {
     id: 'u3-buffers-dd', unit: 'u3', number: '3.3', title: 'Buffers, caches & the Data Dictionary', minutes: 90,
-    objective: 'Explain InnoDB buffers/caches and query INFORMATION_SCHEMA, mysql, and PERFORMANCE_SCHEMA metadata.',
+    objective: 'Configure and measure InnoDB buffers/caches and query INFORMATION_SCHEMA, mysql, and PERFORMANCE_SCHEMA metadata.',
     steps: [
       {
         id: 'u3-buffers-caches',
         title: 'Configure buffers and caches wisely.',
-        lead: 'Distinguish global shared buffers (allocated once at startup) from per-connection session buffers.',
+        lead: 'Distinguish global shared buffers from per-connection buffers—and know dynamic SET GLOBAL vs persistent my.cnf tuning.',
         type: 'comparison',
-        columns: ['Buffer / Cache', 'Scope', 'Classroom Value & Role'],
+        columns: ['Buffer / Cache', 'Scope & Persistence', 'Classroom Value & Tuning Role'],
         rows: [
-          ['innodb_buffer_pool_size', 'Global (RAM)', '128 MB here (50–70% RAM on dedicated DB servers); caches hot data & index pages'],
-          ['innodb_log_buffer_size', 'Global (RAM)', '8 MB; buffers redo entries before flushing to redo logs'],
-          ['table_open_cache', 'Global', 'Keeps open table file descriptors cached to avoid constant reopen overhead'],
-          ['thread_cache_size', 'Global', 'Reuses idle worker threads across new client logins'],
-          ['sort_buffer_size / join_buffer_size', 'Per-Connection!', 'Allocated per active query sort/join—setting these too huge causes OOM under high concurrency!']
+          ['innodb_buffer_pool_size', 'Global (dynamic + [mariadb] my.cnf)', '128 MB here (50–70% RAM in production); caches hot data & index pages'],
+          ['innodb_log_buffer_size', 'Global (restart / my.cnf)', 'Buffers redo entries before flushing to redo logs'],
+          ['table_open_cache', 'Global (SET GLOBAL + my.cnf)', 'Keeps open table file descriptors cached to avoid reopen overhead'],
+          ['thread_cache_size', 'Global (SET GLOBAL + my.cnf)', 'Reuses idle worker threads across new client logins'],
+          ['sort_buffer_size / join_buffer_size', 'Per-Connection!', 'Allocated per active query sort/join—oversizing causes OOM under concurrency!']
         ],
-        question: 'Why can setting join_buffer_size = 256M crash a database server with 100 connections?',
-        answer: 'Per-connection buffers multiply by active sessions (e.g. 100 × 256 MB = 25 GB), exhausting RAM and triggering OS OOM kills.',
-        notes: 'Important practical DBA rule: allocate generously to global innodb_buffer_pool_size, stay conservative on per-session buffers.'
+        question: 'How do you make a dynamic SET GLOBAL thread_cache_size = 32 change survive a MariaDB container restart?',
+        answer: 'Unlike MySQL SET PERSIST, MariaDB does not write SQL changes to disk automatically—you must also add thread_cache_size = 32 under [mariadb] in my.cnf.',
+        notes: 'Highlight both SET GLOBAL (immediate testing) and my.cnf (persistence across restarts), plus keeping per-connection buffers modest.'
       },
       {
         id: 'u3-buffer-metrics',
         title: 'Measure live buffer pool and cache effectiveness.',
-        lead: 'Calculate your real InnoDB Buffer Pool Hit Ratio from MariaDB status counters.',
+        lead: 'Calculate your real InnoDB Buffer Pool Hit Ratio cleanly from GLOBAL_STATUS counters.',
         type: 'query',
         persona: 'dba_lab',
         database: 'information_schema',
-        sql: "SELECT\n  (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_read_requests') AS logical_reads,\n  (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_reads') AS physical_disk_reads,\n  ROUND((1 - (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_reads') / GREATEST((SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_read_requests'), 1)) * 100, 3) AS buffer_hit_pct;",
+        sql: "SELECT\n  MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_read_requests' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS logical_reads,\n  MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_reads' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS physical_disk_reads,\n  ROUND((1 - MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_reads' THEN VARIABLE_VALUE END) /\n    GREATEST(MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_read_requests' THEN VARIABLE_VALUE END), 1)) * 100, 3) AS buffer_hit_pct\nFROM information_schema.GLOBAL_STATUS\nWHERE VARIABLE_NAME IN ('Innodb_buffer_pool_read_requests', 'Innodb_buffer_pool_reads');",
         presets: [
-          ['Buffer pool hit ratio', "SELECT (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_read_requests') AS logical_reads, (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_reads') AS physical_disk_reads, ROUND((1 - (SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_reads') / GREATEST((SELECT VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME='Innodb_buffer_pool_read_requests'), 1)) * 100, 3) AS buffer_hit_pct;"],
+          ['Buffer pool hit ratio', "SELECT MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_read_requests' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS logical_reads, MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_reads' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS physical_disk_reads, ROUND((1 - MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_reads' THEN VARIABLE_VALUE END)/GREATEST(MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_read_requests' THEN VARIABLE_VALUE END),1))*100,3) AS buffer_hit_pct FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN ('Innodb_buffer_pool_read_requests','Innodb_buffer_pool_reads');"],
           ['Memory & cache variables', "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('innodb_buffer_pool_size','innodb_log_buffer_size','table_open_cache','thread_cache_size','sort_buffer_size','join_buffer_size');"]
         ],
         expected: 'Shows logical RAM page hits vs physical disk reads and computed hit percentage (typically > 98%).',
         question: 'If buffer_hit_pct drops steadily below 90% on a read-heavy database, what tuning change usually helps most?',
         answer: 'Increasing innodb_buffer_pool_size (and indexing missing filters so queries scan fewer irrelevant pages).',
-        notes: 'Point out that logical_reads come from RAM while Innodb_buffer_pool_reads represent misses that went to disk.'
+        notes: 'Point out that logical_reads come from RAM while Innodb_buffer_pool_reads represent cache misses hitting disk.'
       },
       {
         id: 'u3-data-dictionary',
         title: 'Understanding MariaDB’s Data Dictionary.',
-        lead: 'The Data Dictionary stores authoritative metadata about schemas, tables, columns, keys, users, and runtime performance.',
+        lead: 'The Data Dictionary stores authoritative metadata about schemas, tables, columns, keys, users, and runtime telemetry.',
         type: 'cards',
         cards: [
-          ['INFORMATION_SCHEMA', 'Standard read-only ANSI metadata views describing tables, columns, views, constraints, engines, and InnoDB transactions.'],
+          ['INFORMATION_SCHEMA', 'Standard read-only ANSI metadata views describing tables, columns, views, constraints, engines, and InnoDB locks/transactions.'],
           ['mysql schema', 'Persistent system tables holding user accounts, password hashes, global/DB privileges, roles, and time zones.'],
-          ['PERFORMANCE_SCHEMA', 'Low-overhead instrumentation exposing active locks, statement digests, wait events, and socket telemetry.']
+          ['PERFORMANCE_SCHEMA', 'Low-overhead instrumentation exposing statement digests, metadata locks, wait events, and socket telemetry.']
         ],
         question: 'Can a DBA directly run INSERT INTO INFORMATION_SCHEMA.TABLES to register a fake table?',
         answer: 'No. INFORMATION_SCHEMA consists of read-only dynamic system views maintained automatically by DDL operations.',
-        notes: 'Explain how DESCRIBE and SHOW TABLES are simply convenient shortcuts over INFORMATION_SCHEMA queries.'
+        notes: 'Explain how DESCRIBE and SHOW TABLES are shortcuts over INFORMATION_SCHEMA queries.'
       },
       {
         id: 'u3-dd-queries',
@@ -222,20 +222,20 @@ COURSE.sections.push(
         expected: 'Displays live table sizes, foreign-key references, column metadata, and MariaDB accounts from system catalogs.',
         question: 'Which Data Dictionary table would you query to find every foreign key pointing to courses(id) before changing courses?',
         answer: 'information_schema.KEY_COLUMN_USAGE filtering WHERE REFERENCED_TABLE_NAME = "courses".',
-        notes: 'Run all four presets! Point out that mysql.user is a read-only view over mysql.global_priv in MariaDB 11.4.'
+        notes: 'Run all four presets! Note that mysql.user is a read-only view over mysql.global_priv in MariaDB 11.4.'
       },
       {
         id: 'u3-dd-check',
         title: 'Checkpoint: choosing the right metadata schema.',
-        lead: 'You need to inspect which constraints exist on sql_lab.enrollments and see active InnoDB locks.',
+        lead: 'You need to inspect which constraints exist on sql_lab.enrollments and see active InnoDB row locks.',
         type: 'quiz',
         options: [
-          'Query INFORMATION_SCHEMA.TABLE_CONSTRAINTS for constraints and INFORMATION_SCHEMA.INNODB_LOCKS for locks',
+          'Query INFORMATION_SCHEMA.TABLE_CONSTRAINTS for constraints and INFORMATION_SCHEMA.INNODB_LOCKS for row locks',
           'Query college_demo.students for both',
           'Edit ibdata1 with a text editor'
         ],
         correct: 0,
-        feedback: 'INFORMATION_SCHEMA exposes schema constraints and metadata; PERFORMANCE_SCHEMA exposes live locks and waits.',
+        feedback: 'INFORMATION_SCHEMA exposes table constraints as well as active InnoDB transactions/row locks (while PERFORMANCE_SCHEMA exposes statement digests and wait timers).',
         question: 'Student task: write a query checking which columns in sql_lab allow NULL values.',
         answer: "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='sql_lab' AND IS_NULLABLE='YES' ORDER BY TABLE_NAME, ORDINAL_POSITION;",
         notes: 'Confirm Data Dictionary mastery before introducing user creation, roles, and authentication plugins.'
@@ -244,7 +244,7 @@ COURSE.sections.push(
   },
   {
     id: 'u3-users-auth', unit: 'u3', number: '3.4', title: 'User accounts, roles & auth plugins', minutes: 90,
-    objective: 'Create users and roles, activate roles in a session, and compare MariaDB authentication plugins including ed25519.',
+    objective: 'Create users and roles, activate roles with SET ROLE / SET DEFAULT ROLE, and compare MariaDB auth plugins.',
     steps: [
       {
         id: 'u3-user-identity',
@@ -257,16 +257,14 @@ COURSE.sections.push(
           ['Wildcard host', "'reporting'@'%' matches any remote TCP/IP host (combine with TLS and strong passwords)."]
         ],
         question: 'If both ""@"localhost" (anonymous) and "alice"@"%" exist, what unexpected match occurs when Alice connects locally?',
-        answer: 'MariaDB sorts exact host "localhost" ahead of wildcard "%", so Alice matches the anonymous local account! Always remove anonymous users.',
-        notes: 'Point out that MariaDB 11.4 Docker images drop anonymous users by default, which is a best practice.'
+        answer: 'MariaDB sorts exact host "localhost" ahead of wildcard "%", so Alice matches the anonymous local account! Always drop anonymous users.',
+        notes: 'Point out that MariaDB 11.4 Docker images drop anonymous users by default.'
       },
       {
         id: 'u3-roles-lifecycle',
-        title: 'Create users and manage Roles in a persistent session.',
+        title: 'Create users and manage Roles with RBAC.',
         lead: 'Roles bundle reusable privilege sets cleanly so dozens of analysts do not need individual GRANT edits.',
         type: 'query',
-        persistent: true,
-        sessionSlot: 'unit3',
         persona: 'dba_lab',
         database: 'security_lab',
         resetKind: 'unit3',
@@ -274,16 +272,17 @@ COURSE.sections.push(
         presets: [
           ['1. Create role', "CREATE ROLE IF NOT EXISTS 'role_reader';"],
           ['2. Grant SELECT to role', "GRANT SELECT ON security_lab.* TO 'role_reader';"],
-          ['3. Create user & assign role', "CREATE USER IF NOT EXISTS 'analyst_u3'@'%' IDENTIFIED BY 'Analyst#2026';"],
+          ['3. Create user analyst_u3', "CREATE USER IF NOT EXISTS 'analyst_u3'@'%' IDENTIFIED BY 'Analyst#2026';"],
           ['4. Grant role to user', "GRANT 'role_reader' TO 'analyst_u3'@'%';"],
           ['5. Set default role', "SET DEFAULT ROLE 'role_reader' FOR 'analyst_u3'@'%';"],
-          ['6. Inspect user grants', "SHOW GRANTS FOR 'analyst_u3'@'%';"],
-          ['7. Inspect role grants', "SHOW GRANTS FOR 'role_reader';"]
+          ['6. Inspect grants & test revoke/re-grant', "SHOW GRANTS FOR 'analyst_u3'@'%';"],
+          ['7. Inspect role grants', "SHOW GRANTS FOR 'role_reader';"],
+          ['8. Activate role in current session', "SET ROLE 'role_reader';"]
         ],
-        expected: 'Creates role_reader, grants security_lab SELECT, assigns it to analyst_u3, and enables it as default role.',
-        question: 'What happens if you GRANT a role to a user WITHOUT setting SET DEFAULT ROLE?',
-        answer: 'The user logs in with 0 role privileges active until their session explicitly executes SET ROLE role_reader;.',
-        notes: 'Run presets 1–7 in order! Highlight how clean role-based access control (RBAC) becomes when onboarding/offboarding staff.'
+        expected: 'Creates role_reader, grants security_lab SELECT, assigns it to analyst_u3 as default role, and activates SET ROLE.',
+        question: 'What happens if you GRANT a role to a user WITHOUT running SET DEFAULT ROLE?',
+        answer: 'The user logs in with 0 role privileges active (CURRENT_ROLE() is NULL) until their session explicitly executes SET ROLE role_reader;.',
+        notes: 'Walk through presets 1–8! Note SET ROLE works for dba_lab or any granted user session; REVOKE role_reader FROM user detaches the role.',
       },
       {
         id: 'u3-auth-plugins',
@@ -300,9 +299,9 @@ COURSE.sections.push(
           ['3. Inspect plugin & hash', "SELECT User, Host, plugin, LEFT(authentication_string, 32) AS auth_preview FROM mysql.user WHERE User IN ('dba_lab','ed_user','tls_user','web_app','reporting') ORDER BY User;"]
         ],
         expected: 'Lists active auth plugins, creates ed_user using ed25519, and inspects stored plugin metadata.',
-        question: 'Notice ed25519 produces a compact public-key hash without storing weak SHA-1 hashes. What must the client driver also support?',
+        question: 'Notice ed25519 stores a public key rather than weak double-SHA1 hashes. What must the client driver also support?',
         answer: 'The client library must ship the matching client plugin (e.g. client_ed25519.so in libmariadb / MariaDB Connector).',
-        notes: 'Run presets 1, 2, 3! Note that MariaDB’s native mariadb CLI inside Docker supports ed25519 out of the box.'
+        notes: 'Run presets 1, 2, 3! Note MariaDB’s CLI client inside Docker supports ed25519 out of the box.'
       },
       {
         id: 'u3-auth-compare',
@@ -365,9 +364,9 @@ COURSE.sections.push(
         title: 'Live Persona & Permission Tester.',
         lead: 'Switch between dba_lab, web_app, reporting, console, or custom users and observe which SQL operations succeed or fail with Error 1142.',
         type: 'persona-lab',
-        question: 'Notice reporting can SELECT from college_demo.students, yet fails on DELETE. What happens when web_app tries DROP TABLE?',
-        answer: 'reporting holds SELECT only (1142 DELETE denied); web_app holds SELECT/INSERT/UPDATE only (1142 DROP denied); dba_lab succeeds.',
-        notes: 'Have students predict Success vs Access Denied before clicking Run as Persona! Also try custom login with analyst_u3 / Analyst#2026 if created in 3.4.'
+        question: 'Notice reporting can SELECT from college_demo.students, yet fails on DELETE. What happens when web_app tries INSERT on security_lab vs DROP TABLE?',
+        answer: 'reporting holds SELECT only (1142 DELETE denied); web_app holds SELECT/INSERT/UPDATE on security_lab (INSERT succeeds, DROP rejected with Error 1142); dba_lab succeeds on security_lab DROP TABLE (use Reset Unit 3 to restore).',
+        notes: 'Have students predict Success vs Access Denied before clicking "Execute as selected persona"! You can also test custom login analyst_u3 / Analyst#2026 if created in 3.4.'
       },
       {
         id: 'u3-grant-revoke',
@@ -406,7 +405,7 @@ COURSE.sections.push(
         feedback: 'Table-specific SELECT/INSERT/UPDATE limits blast radius even if the web app has a bug.',
         question: 'Student task: write a REVOKE statement removing UPDATE on security_lab.* from web_app@%.',
         answer: "REVOKE UPDATE ON security_lab.* FROM 'web_app'@'%';",
-        notes: 'If you run that REVOKE in class to test, click Reset Unit 3 afterwards to restore baseline grants.'
+        notes: 'If you run that REVOKE in class to test, open ⌘K -> Reset Unit 3 security_lab (or press Reset Unit 3 in SQL Studio) afterward.'
       }
     ]
   },
@@ -438,20 +437,20 @@ COURSE.sections.push(
         type: 'sqli-lab',
         question: 'Why did "\' OR \'1\'=\'1" dump every user (including admin_portal) in the vulnerable query while returning 0 rows in the parameterized query?',
         answer: 'String concatenation turns input into executable SQL OR predicates. Parameterized queries (conn.execute with ?) send SQL structure and data values separately so quotes are treated strictly as literal text.',
-        notes: 'Try all 3 quick payloads: Normal login -> OR 1=1 auth bypass -> Comment bypass (-- ). Also note security_reader holds SELECT only so injection cannot drop tables.'
+        notes: 'Try all 3 presets: Normal login -> OR 1=1 auth bypass -> Comment hijack (-- ). Also highlight why security_reader holds SELECT only.'
       },
       {
         id: 'u3-risks-check',
-        title: 'Checkpoint: why escaping manually is brittle.',
+        title: 'Checkpoint: why manual escaping is brittle.',
         lead: 'What is the gold-standard defense against SQL injection in application code?',
         type: 'quiz',
         options: [
-          'Hiding error messages in CSS',
-          'Prepared statements / parameterized queries separating SQL code from user data',
-          'Renaming table columns to random strings'
+          'Manually stripping single quotes and running the web app as root',
+          'Prepared statements / parameterized queries separating SQL structure from bound data values',
+          'Checking input length only in frontend JavaScript'
         ],
         correct: 1,
-        feedback: 'Parameterized placeholders (?) guarantee user input can never alter the SQL parse tree.',
+        feedback: 'Parameterized placeholders (?) guarantee user input can never alter the SQL parse tree regardless of quotes or encodings.',
         question: 'Student task: explain why a read-only security_reader account prevented DROP TABLE even in the vulnerable query.',
         answer: 'Database privileges enforce a second defensive boundary inside MariaDB (and single-statement driver settings block stacked ; queries).',
         notes: 'Move to Section 3.7 for TLS encryption, password policies, and login hardening.'
@@ -465,7 +464,7 @@ COURSE.sections.push(
       {
         id: 'u3-tls-concepts',
         title: 'Securing server connections with TLS/SSL.',
-        lead: 'Without TLS, passwords (after auth challenge) and every returned student record travel over the network in cleartext.',
+        lead: 'Without TLS, returned student records and unencrypted traffic can be inspected on the wire.',
         type: 'cards',
         cards: [
           ['Server Certificates', 'ssl_ca, ssl_cert, and ssl_key configured in classroom.cnf enable encrypted handshakes on port 3306.'],
@@ -474,12 +473,12 @@ COURSE.sections.push(
         ],
         question: 'If ssl_cert is configured on the server, does every client automatically get forced to use TLS unless REQUIRE SSL is set?',
         answer: 'No! By default TLS is optional—clients that omit SSL connect unencrypted unless REQUIRE SSL or global require_secure_transport=ON is enforced.',
-        notes: 'Point out that Docker’s MariaDB container built its own 2048-bit CA and signed server certificate in /etc/mysql/certs/.'
+        notes: 'Point out that Docker’s MariaDB container built its own 2048-bit CA and signed server certificate in /etc/mysql/certs/ (downloadable in DBeaver setup).'
       },
       {
         id: 'u3-tls-live',
         title: 'Live TLS test: enforce REQUIRE SSL on tls_user.',
-        lead: 'Toggle "Use TLS / SSL" OFF vs ON below while connecting as tls_user (configured with REQUIRE SSL) and inspect the server cipher.',
+        lead: 'Toggle the TLS/SSL checkbox in SQL Studio on the right OFF vs ON while connecting as tls_user (REQUIRE SSL) and inspect the cipher.',
         type: 'query',
         persona: 'tls_user',
         database: 'security_lab',
@@ -490,10 +489,10 @@ COURSE.sections.push(
           ['Check TLS cipher', "SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_cipher', 'Ssl_version');"],
           ['Read protected records', 'SELECT id, title, classification FROM course_records ORDER BY id;']
         ],
-        expected: 'With TLS OFF: rejected with Access Denied (1045)! With TLS ON: connects securely and reports TLSv1.3 / TLS_AES_256_GCM_SHA384.',
-        question: 'Why did tls_user fail even with the correct password when TLS was unchecked?',
+        expected: 'With TLS/SSL unchecked: rejected with Access Denied (1045)! With TLS/SSL checked: connects securely (e.g. TLSv1.3 / TLS_AES_256_GCM_SHA384).',
+        question: 'Why did tls_user fail even with the correct password when TLS/SSL was unchecked?',
         answer: 'MariaDB enforces REQUIRE SSL during authentication and rejects non-TLS sockets even when credentials match.',
-        notes: 'Run once with TLS OFF first to show the 1045 error live, then check Use TLS / SSL and run again to reveal Ssl_cipher!'
+        notes: 'Run once with TLS/SSL unchecked to demonstrate Error 1045, then check TLS/SSL and Run ⌘↵ to reveal Ssl_cipher and Ssl_version!'
       },
       {
         id: 'u3-password-policy',
@@ -503,30 +502,31 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'security_lab',
         resetKind: 'unit3',
-        sql: "INSTALL SONAME 'simple_password_check';",
+        sql: "INSTALL PLUGIN IF NOT EXISTS simple_password_check SONAME 'simple_password_check';",
         presets: [
-          ['1. Install password plugin', "INSTALL SONAME 'simple_password_check';"],
+          ['1. Install password plugin', "INSTALL PLUGIN IF NOT EXISTS simple_password_check SONAME 'simple_password_check';"],
           ['2. Inspect policy variables', "SHOW GLOBAL VARIABLES LIKE 'simple_password_check%';"],
           ['3. Reject weak password (1819)', "CREATE USER 'locked_user'@'%' IDENTIFIED BY 'weak';"],
           ['4. Accept strong password', "CREATE USER IF NOT EXISTS 'locked_user'@'%' IDENTIFIED BY 'StrongLab#2026' PASSWORD EXPIRE INTERVAL 90 DAY;"],
           ['5. Lock account immediately', "ALTER USER 'locked_user'@'%' ACCOUNT LOCK;"],
           ['6. Verify lock & expiry flags', "SELECT User, Host, JSON_VALUE(Priv, '$.account_locked') AS account_locked, JSON_VALUE(Priv, '$.password_lifetime') AS password_lifetime FROM mysql.global_priv WHERE User='locked_user';"],
-          ['7. Resource limits example', "ALTER USER 'locked_user'@'%' WITH MAX_QUERIES_PER_HOUR 500 MAX_USER_CONNECTIONS 5 ACCOUNT UNLOCK;"]
+          ['7. Resource limits example', "ALTER USER 'locked_user'@'%' WITH MAX_QUERIES_PER_HOUR 500 MAX_USER_CONNECTIONS 5 ACCOUNT UNLOCK;"],
+          ['8. Clean up locked_user', "DROP USER IF EXISTS 'locked_user'@'%';"]
         ],
-        expected: 'Installs simple_password_check, rejects "weak" with Error 1819, creates locked_user with 90-day expiry, locks it, and applies resource quotas.',
-        question: 'What happens if a developer leaves locked_user locked in mysql.user?',
-        answer: 'MariaDB preserves the user’s grants/schema history while rejecting all login attempts (useful during employee offboarding or incident response).',
-        notes: 'Step through presets 1–7 in class! Remember Reset Unit 3 uninstalls simple_password_check and drops locked_user cleanly.'
+        expected: 'Installs simple_password_check, rejects "weak" with Error 1819, creates locked_user with 90-day expiry, locks it, applies resource quotas, and cleans up.',
+        question: 'What happens if a developer locks an account with ACCOUNT LOCK rather than running DROP USER?',
+        answer: 'MariaDB preserves the user’s grants and ownership history while blocking all new logins (ideal for suspensions, incidents, or controlled offboarding).',
+        notes: 'Step through presets 1–8 in class! Reset Unit 3 also uninstalls simple_password_check cleanly.'
       },
       {
         id: 'u3-checkpoint-challenge',
         title: 'Security hardening verification challenge.',
-        lead: 'Inspect mysql.user and INFORMATION_SCHEMA to audit accounts that currently have REQUIRE SSL or empty plugin flags.',
+        lead: 'Audit mysql.user in SQL Studio to verify which demo accounts enforce TLS (REQUIRE SSL) and which authentication plugins are configured.',
         type: 'challenge',
         database: 'mysql',
         persona: 'dba_lab',
         hints: [
-          'Query mysql.user (or mysql.global_priv) selecting User, Host, plugin, ssl_type.',
+          'Query mysql.user selecting User, Host, plugin, ssl_type.',
           "Try: SELECT User, Host, plugin, ssl_type FROM mysql.user WHERE User IN ('tls_user', 'web_app', 'reporting') ORDER BY User;"
         ],
         check: {
@@ -536,25 +536,9 @@ COURSE.sections.push(
           orderMatters: true,
           expectedSql: "SELECT User, Host, plugin, ssl_type FROM mysql.user WHERE User IN ('tls_user', 'web_app', 'reporting') ORDER BY User;"
         },
-        question: 'Write a query returning User, Host, plugin, and ssl_type for tls_user, web_app, and reporting ordered by User.',
+        question: 'Write a query returning User, Host, plugin, and ssl_type for tls_user, web_app, and reporting ordered by User, then advance to Unit 4.',
         answer: "SELECT User, Host, plugin, ssl_type\nFROM mysql.user\nWHERE User IN ('tls_user', 'web_app', 'reporting')\nORDER BY User;",
-        notes: 'Notice ssl_type = "ANY" on tls_user (set by REQUIRE SSL) vs empty string on non-TLS accounts.'
-      },
-      {
-        id: 'u3-complete',
-        title: 'Unit 3 complete. Security & architecture covered.',
-        lead: 'You can now inspect InnoDB storage/buffers, query the Data Dictionary, manage users/roles/plugins, mitigate SQLi, and enforce TLS.',
-        type: 'quiz',
-        options: [
-          'Only root passwords protect a database',
-          'Database security layers least privilege, strong auth plugins, parameterized SQL, TLS transport, and password/login policies',
-          'Deleting INFORMATION_SCHEMA hides user accounts'
-        ],
-        correct: 1,
-        feedback: 'Layered controls across identity, authorization, queries, network transport, and password lifecycle harden MariaDB.',
-        question: 'Exit ticket: trace what protects an account from network sniffing AND from SQL injection.',
-        answer: 'TLS (REQUIRE SSL) encrypts traffic over the wire against sniffing; parameterized queries + least privilege neutralize SQL injection.',
-        notes: 'Press Next to start Unit 4: Monitoring & Maintenance of MariaDB.'
+        notes: 'Notice ssl_type = "ANY" on tls_user (set by REQUIRE SSL) vs empty string on non-TLS accounts. Click Unit 4 → in the dock to start Monitoring & Maintenance.'
       }
     ]
   }

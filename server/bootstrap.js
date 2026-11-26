@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { connectAdmin } from './db.js';
+import { connectAdmin, HttpError } from './db.js';
 import { prepareUnit2, prepareUnit3, prepareUnit4 } from './fixtures.js';
 
 function loadDatabaseScript(filename) {
@@ -30,7 +30,15 @@ export async function bootstrapClassroom() {
       await conn.query(loadDatabaseScript('03-unit2.sql'));
       await conn.query(loadDatabaseScript('04-admin-labs.sql'));
 
-      await prepareUnit2(conn, false);
+      try {
+        await prepareUnit2(conn, false);
+      } catch (u2Err) {
+        if (u2Err instanceof HttpError && u2Err.status === 409) {
+          console.warn('[bootstrap] Warning:', u2Err.message);
+        } else {
+          throw u2Err;
+        }
+      }
       await prepareUnit3(conn, false);
       await prepareUnit4(conn, false);
       await conn.end();

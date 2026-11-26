@@ -3,53 +3,52 @@ window.CLASSROOM_DIAGRAMS = {
   'three-schema': {
     caption: 'ANSI-SPARC Three-Schema Architecture & Data Independence Mappings — click any node to inspect',
     defaultNode: 'ext-map',
-    viewBox: '0 0 760 400',
     svg: `
-      <svg viewBox="0 0 760 400" class="diagram-svg" role="img" aria-label="Three-Schema Architecture and Mappings">
+      <svg viewBox="0 0 760 404" class="diagram-svg" role="img" aria-label="Three-Schema Architecture and Mappings">
         <defs>
           <marker id="arrow-ink" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1 L 10 5 L 0 9 z" fill="#66675e"/>
+            <path d="M 0 1 L 10 5 L 0 9 z" class="diag-marker-muted"/>
           </marker>
           <marker id="arrow-accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 1 L 10 5 L 0 9 z" fill="#8b4b32"/>
+            <path d="M 0 1 L 10 5 L 0 9 z" class="diag-marker-accent"/>
           </marker>
         </defs>
         <g class="diag-node" data-node="external" tabindex="0">
-          <rect x="40" y="18" width="205" height="62" rx="4" class="diag-box"/>
+          <rect x="35" y="18" width="215" height="62" rx="4" class="diag-box"/>
           <text x="142" y="44" class="diag-title">External View 1</text>
           <text x="142" y="64" class="diag-sub">Teacher Roster (name, course)</text>
-          <rect x="278" y="18" width="205" height="62" rx="4" class="diag-box"/>
+          <rect x="272" y="18" width="215" height="62" rx="4" class="diag-box"/>
           <text x="380" y="44" class="diag-title">External View 2</text>
-          <text x="380" y="64" class="diag-sub">Accounts Ledger (student_id, fee)</text>
-          <rect x="515" y="18" width="205" height="62" rx="4" class="diag-box"/>
+          <text x="380" y="64" class="diag-sub">Accounts (student_id, fee)</text>
+          <rect x="510" y="18" width="215" height="62" rx="4" class="diag-box"/>
           <text x="617" y="44" class="diag-title">External View 3</text>
           <text x="617" y="64" class="diag-sub">Student Self-Service Portal</text>
         </g>
-        <line x1="142" y1="80" x2="260" y2="112" stroke="#8b4b32" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
-        <line x1="380" y1="80" x2="380" y2="112" stroke="#8b4b32" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
-        <line x1="617" y1="80" x2="500" y2="112" stroke="#8b4b32" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+        <line x1="142" y1="80" x2="256" y2="112" class="diag-arrow-accent" marker-end="url(#arrow-accent)"/>
+        <line x1="380" y1="80" x2="380" y2="112" class="diag-arrow-accent" marker-end="url(#arrow-accent)"/>
+        <line x1="617" y1="80" x2="504" y2="112" class="diag-arrow-accent" marker-end="url(#arrow-accent)"/>
         <g class="diag-node" data-node="ext-map" tabindex="0">
-          <rect x="170" y="114" width="420" height="44" rx="4" class="diag-box-accent"/>
+          <rect x="95" y="114" width="570" height="46" rx="4" class="diag-box-accent"/>
           <text x="380" y="133" class="diag-title-accent">External – Conceptual Mapping</text>
-          <text x="380" y="149" class="diag-sub-accent">Shields views from logical table splits → Logical Data Independence</text>
+          <text x="380" y="150" class="diag-sub-accent">Shields views from logical table splits → Logical Data Independence</text>
         </g>
-        <line x1="380" y1="158" x2="380" y2="188" stroke="#66675e" stroke-width="1.5" marker-end="url(#arrow-ink)"/>
+        <line x1="380" y1="160" x2="380" y2="188" class="diag-arrow" marker-end="url(#arrow-ink)"/>
         <g class="diag-node" data-node="conceptual" tabindex="0">
-          <rect x="90" y="190" width="580" height="62" rx="4" class="diag-box"/>
+          <rect x="35" y="190" width="690" height="62" rx="4" class="diag-box"/>
           <text x="380" y="216" class="diag-title">Conceptual Schema (Global Logical Design)</text>
-          <text x="380" y="236" class="diag-sub">Tables, columns, data types, PK/FK constraints, relationships (students, courses, enrollments)</text>
+          <text x="380" y="236" class="diag-sub">Tables, columns, types, PK/FK constraints &amp; relationships (students, courses, enrollments)</text>
         </g>
-        <line x1="380" y1="252" x2="380" y2="282" stroke="#8b4b32" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+        <line x1="380" y1="252" x2="380" y2="282" class="diag-arrow-accent" marker-end="url(#arrow-accent)"/>
         <g class="diag-node" data-node="int-map" tabindex="0">
-          <rect x="170" y="284" width="420" height="44" rx="4" class="diag-box-accent"/>
+          <rect x="95" y="284" width="570" height="46" rx="4" class="diag-box-accent"/>
           <text x="380" y="303" class="diag-title-accent">Conceptual – Internal Mapping</text>
-          <text x="380" y="319" class="diag-sub-accent">Shields logical schema from disk & index changes → Physical Data Independence</text>
+          <text x="380" y="320" class="diag-sub-accent">Shields logical schema from disk/index changes → Physical Data Independence</text>
         </g>
-        <line x1="380" y1="328" x2="380" y2="346" stroke="#66675e" stroke-width="1.5" marker-end="url(#arrow-ink)"/>
+        <line x1="380" y1="330" x2="380" y2="348" class="diag-arrow" marker-end="url(#arrow-ink)"/>
         <g class="diag-node" data-node="internal" tabindex="0">
-          <rect x="90" y="346" width="580" height="46" rx="4" class="diag-box"/>
-          <text x="380" y="366" class="diag-title">Internal Schema (Physical Storage)</text>
-          <text x="380" y="382" class="diag-sub">16 KB InnoDB pages (.ibd), B+Tree indexes, buffer pool, redo/undo logs</text>
+          <rect x="35" y="348" width="690" height="46" rx="4" class="diag-box"/>
+          <text x="380" y="367" class="diag-title">Internal Schema (Physical Storage)</text>
+          <text x="380" y="384" class="diag-sub">16 KB InnoDB pages (.ibd), B+Tree indexes, buffer pool, redo/undo logs</text>
         </g>
       </svg>
     `,
@@ -79,12 +78,11 @@ window.CLASSROOM_DIAGRAMS = {
   'dbms-architecture': {
     caption: 'Internal DBMS Architecture: Users → Query Processor → Storage Manager → Disk Storage',
     defaultNode: 'query-processor',
-    viewBox: '0 0 760 390',
     svg: `
       <svg viewBox="0 0 760 390" class="diagram-svg" role="img" aria-label="DBMS System Architecture Components">
         <defs>
           <marker id="arch-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M 0 1 L 10 5 L 0 9 z" fill="#66675e"/>
+            <path d="M 0 1 L 10 5 L 0 9 z" class="diag-marker-muted"/>
           </marker>
         </defs>
         <g class="diag-node" data-node="users" tabindex="0">
@@ -92,29 +90,29 @@ window.CLASSROOM_DIAGRAMS = {
           <text x="380" y="39" class="diag-title">Database Users &amp; Clients</text>
           <text x="380" y="59" class="diag-sub">Naive Users (Forms) · App Programmers (Code) · Sophisticated Users (SQL/BI) · DBA (Admin Tools)</text>
         </g>
-        <line x1="380" y1="74" x2="380" y2="96" stroke="#66675e" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+        <line x1="380" y1="74" x2="380" y2="96" class="diag-arrow" marker-end="url(#arch-arrow)"/>
         <g class="diag-node" data-node="query-processor" tabindex="0">
           <rect x="35" y="98" width="690" height="84" rx="4" class="diag-box-accent"/>
           <text x="380" y="120" class="diag-title-accent">Query Processor (Parser · Optimizer · Execution)</text>
-          <text x="155" y="152" class="diag-sub">DDL Interpreter</text>
-          <text x="380" y="152" class="diag-sub">DML Compiler &amp; Optimizer</text>
-          <text x="605" y="152" class="diag-sub">Query Evaluation Engine</text>
-          <line x1="258" y1="132" x2="258" y2="170" stroke="#d8d5cb" stroke-width="1"/>
-          <line x1="502" y1="132" x2="502" y2="170" stroke="#d8d5cb" stroke-width="1"/>
+          <text x="146" y="154" class="diag-sub-accent">DDL Interpreter</text>
+          <text x="380" y="154" class="diag-sub-accent">DML Compiler &amp; Optimizer</text>
+          <text x="614" y="154" class="diag-sub-accent">Query Evaluation Engine</text>
+          <line x1="258" y1="132" x2="258" y2="170" class="diag-divider"/>
+          <line x1="502" y1="132" x2="502" y2="170" class="diag-divider"/>
         </g>
-        <line x1="380" y1="182" x2="380" y2="204" stroke="#66675e" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+        <line x1="380" y1="182" x2="380" y2="204" class="diag-arrow" marker-end="url(#arch-arrow)"/>
         <g class="diag-node" data-node="storage-manager" tabindex="0">
           <rect x="35" y="206" width="690" height="86" rx="4" class="diag-box"/>
           <text x="380" y="229" class="diag-title">Storage Manager (Integrity · Concurrency · Memory)</text>
-          <text x="128" y="261" class="diag-sub">Authorization &amp; Integrity</text>
+          <text x="125" y="261" class="diag-sub">Auth &amp; Integrity</text>
           <text x="305" y="261" class="diag-sub">Transaction Manager</text>
           <text x="475" y="261" class="diag-sub">File Manager</text>
-          <text x="632" y="261" class="diag-sub">Buffer Manager</text>
-          <line x1="215" y1="242" x2="215" y2="278" stroke="#e2dfd4" stroke-width="1"/>
-          <line x1="395" y1="242" x2="395" y2="278" stroke="#e2dfd4" stroke-width="1"/>
-          <line x1="555" y1="242" x2="555" y2="278" stroke="#e2dfd4" stroke-width="1"/>
+          <text x="640" y="261" class="diag-sub">Buffer Manager</text>
+          <line x1="215" y1="242" x2="215" y2="278" class="diag-divider"/>
+          <line x1="395" y1="242" x2="395" y2="278" class="diag-divider"/>
+          <line x1="555" y1="242" x2="555" y2="278" class="diag-divider"/>
         </g>
-        <line x1="380" y1="292" x2="380" y2="314" stroke="#66675e" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+        <line x1="380" y1="292" x2="380" y2="314" class="diag-arrow" marker-end="url(#arch-arrow)"/>
         <g class="diag-node" data-node="disk-storage" tabindex="0">
           <rect x="35" y="316" width="690" height="60" rx="4" class="diag-box"/>
           <text x="380" y="339" class="diag-title">Disk Storage</text>
@@ -144,37 +142,36 @@ window.CLASSROOM_DIAGRAMS = {
   'join-types': {
     caption: 'SQL Join Types Compared — click any join strategy to inspect how matched and unmatched rows behave',
     defaultNode: 'left',
-    viewBox: '0 0 760 270',
     svg: `
       <svg viewBox="0 0 760 270" class="diagram-svg" role="img" aria-label="SQL Join Types Visual Comparison">
         <g class="diag-node" data-node="inner" tabindex="0">
           <rect x="20" y="16" width="225" height="108" rx="4" class="diag-box"/>
-          <circle cx="105" cy="60" r="24" fill="none" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="155" cy="60" r="24" fill="none" stroke="#3f6048" stroke-width="2"/>
-          <path d="M 130 42 A 24 24 0 0 1 130 78 A 24 24 0 0 1 130 42" fill="#8b4b32" fill-opacity="0.35"/>
+          <circle cx="114" cy="60" r="24" class="diag-circle-a"/>
+          <circle cx="148" cy="60" r="24" class="diag-circle-b"/>
+          <path d="M 131 43.1 A 24 24 0 0 0 131 76.9 A 24 24 0 0 0 131 43.1 Z" class="diag-lens"/>
           <text x="132" y="106" class="diag-title">INNER JOIN</text>
         </g>
         <g class="diag-node" data-node="left" tabindex="0">
           <rect x="267" y="16" width="225" height="108" rx="4" class="diag-box-accent"/>
-          <circle cx="352" cy="60" r="24" fill="#8b4b32" fill-opacity="0.28" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="402" cy="60" r="24" fill="none" stroke="#3f6048" stroke-width="2"/>
+          <circle cx="362" cy="60" r="24" class="diag-circle-a-fill"/>
+          <circle cx="396" cy="60" r="24" class="diag-circle-b"/>
           <text x="380" y="106" class="diag-title-accent">LEFT JOIN</text>
         </g>
         <g class="diag-node" data-node="right" tabindex="0">
           <rect x="514" y="16" width="225" height="108" rx="4" class="diag-box"/>
-          <circle cx="599" cy="60" r="24" fill="none" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="649" cy="60" r="24" fill="#3f6048" fill-opacity="0.28" stroke="#3f6048" stroke-width="2"/>
+          <circle cx="609" cy="60" r="24" class="diag-circle-a"/>
+          <circle cx="643" cy="60" r="24" class="diag-circle-b-fill"/>
           <text x="626" y="106" class="diag-title">RIGHT JOIN</text>
         </g>
         <g class="diag-node" data-node="full" tabindex="0">
           <rect x="20" y="142" width="225" height="108" rx="4" class="diag-box"/>
-          <circle cx="105" cy="186" r="24" fill="#8b4b32" fill-opacity="0.24" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="155" cy="186" r="24" fill="#3f6048" fill-opacity="0.24" stroke="#3f6048" stroke-width="2"/>
+          <circle cx="114" cy="186" r="24" class="diag-circle-a-fill"/>
+          <circle cx="148" cy="186" r="24" class="diag-circle-b-fill"/>
           <text x="132" y="232" class="diag-title">FULL OUTER (UNION)</text>
         </g>
         <g class="diag-node" data-node="cross" tabindex="0">
           <rect x="267" y="142" width="225" height="108" rx="4" class="diag-box"/>
-          <text x="380" y="182" class="diag-title">A (4) × B (6) = 24</text>
+          <text x="380" y="182" class="diag-title">A (6) × B (4) = 24</text>
           <text x="380" y="202" class="diag-sub">Every pair combined</text>
           <text x="380" y="232" class="diag-title">CROSS JOIN</text>
         </g>
@@ -216,14 +213,13 @@ window.CLASSROOM_DIAGRAMS = {
   'innodb-storage': {
     caption: 'InnoDB Storage & Logging Internals (RAM Buffers vs Disk Structures) — click any component',
     defaultNode: 'buffer-pool',
-    viewBox: '0 0 760 360',
     svg: `
       <svg viewBox="0 0 760 360" class="diagram-svg" role="img" aria-label="InnoDB Storage Engine Architecture">
         <text x="380" y="24" class="diag-sub" font-weight="600">MEMORY (RAM) — Volatile High-Speed Buffers</text>
         <g class="diag-node" data-node="buffer-pool" tabindex="0">
           <rect x="35" y="36" width="445" height="96" rx="4" class="diag-box-accent"/>
           <text x="257" y="64" class="diag-title-accent">InnoDB Buffer Pool (128 MB)</text>
-          <text x="257" y="86" class="diag-sub-accent">Caches 16 KB Data Pages, B+Tree Index Pages, Change Buffer &amp; Dirty Pages</text>
+          <text x="257" y="86" class="diag-sub-accent">Caches 16 KB Data &amp; B+Tree Index Pages, Change &amp; Dirty Buffers</text>
           <text x="257" y="106" class="diag-sub-accent">Reads/writes happen in RAM first; flushed asynchronously to disk</text>
         </g>
         <g class="diag-node" data-node="log-buffer" tabindex="0">
@@ -232,7 +228,7 @@ window.CLASSROOM_DIAGRAMS = {
           <text x="612" y="88" class="diag-sub">Buffers redo entries in RAM</text>
           <text x="612" y="108" class="diag-sub">Flushed on COMMIT</text>
         </g>
-        <line x1="35" y1="158" x2="725" y2="158" stroke="#8b4b32" stroke-dasharray="6 4" stroke-width="1.5"/>
+        <line x1="35" y1="158" x2="725" y2="158" class="diag-divider-accent"/>
         <text x="380" y="178" class="diag-sub" font-weight="600">DISK STORAGE (/var/lib/mysql) — Persistent Tablespaces &amp; Logs</text>
         <g class="diag-node" data-node="ibd-files" tabindex="0">
           <rect x="35" y="194" width="220" height="72" rx="4" class="diag-box"/>
@@ -242,7 +238,7 @@ window.CLASSROOM_DIAGRAMS = {
         </g>
         <g class="diag-node" data-node="undo-logs" tabindex="0">
           <rect x="270" y="194" width="210" height="72" rx="4" class="diag-box"/>
-          <text x="375" y="222" class="diag-title">Undo Logs (undo00*)</text>
+          <text x="375" y="222" class="diag-title">Undo Logs (ibdata1 / undo)</text>
           <text x="375" y="242" class="diag-sub">ROLLBACK old row versions</text>
           <text x="375" y="256" class="diag-sub">MVCC consistent snapshots</text>
         </g>
@@ -274,7 +270,7 @@ window.CLASSROOM_DIAGRAMS = {
       },
       'undo-logs': {
         title: 'Undo Logs (Rollback & MVCC)',
-        body: 'Stores pre-update images of modified rows so transactions can ROLLBACK cleanly and concurrent SELECT readers see consistent point-in-time snapshots without blocking writers.'
+        body: 'Stores pre-update images (inside ibdata1 or dedicated undo tablespaces) so transactions can ROLLBACK cleanly and concurrent SELECT readers see consistent point-in-time snapshots.'
       },
       'redo-logs': {
         title: 'Redo Log (Crash Recovery / WAL)',
@@ -282,46 +278,45 @@ window.CLASSROOM_DIAGRAMS = {
       },
       'system-ts': {
         title: 'System Tablespace (ibdata1) & Doublewrite Buffer',
-        body: 'ibdata1 stores system metadata and the doublewrite buffer, which writes 16 KB pages safely before overwriting their destination in .ibd files to survive partial power-loss page tears.'
+        body: 'ibdata1 stores system metadata, default undo logs, and the doublewrite buffer, which writes 16 KB pages safely before overwriting their destination in .ibd files.'
       }
     }
   },
   'lock-contention': {
     caption: 'InnoDB Row-Level Blocking vs Deadlock Cycle — click either scenario to inspect',
     defaultNode: 'blocking',
-    viewBox: '0 0 760 280',
     svg: `
       <svg viewBox="0 0 760 280" class="diagram-svg" role="img" aria-label="Lock Wait vs Deadlock Scenario">
         <defs>
           <marker id="lock-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M 0 1 L 10 5 L 0 9 z" fill="#a03530"/>
+            <path d="M 0 1 L 10 5 L 0 9 z" class="diag-marker-danger"/>
           </marker>
         </defs>
         <g class="diag-node" data-node="blocking" tabindex="0">
           <rect x="20" y="20" width="345" height="240" rx="4" class="diag-box-accent"/>
           <text x="192" y="48" class="diag-title-accent">Scenario 1: Linear Lock Wait</text>
-          <rect x="45" y="72" width="125" height="52" rx="4" class="diag-box"/>
+          <rect x="45" y="72" width="125" height="52" rx="4" class="diag-inner-box"/>
           <text x="107" y="95" class="diag-title">Session A</text>
           <text x="107" y="113" class="diag-sub">Holds X-Lock Row 1</text>
-          <rect x="215" y="72" width="125" height="52" rx="4" class="diag-box"/>
+          <rect x="215" y="72" width="125" height="52" rx="4" class="diag-inner-box"/>
           <text x="277" y="95" class="diag-title">Session B</text>
           <text x="277" y="113" class="diag-sub">Requests Row 1</text>
-          <line x1="215" y1="98" x2="174" y2="98" stroke="#a03530" stroke-width="2" marker-end="url(#lock-arrow)"/>
-          <text x="192" y="160" class="diag-sub">Session B pauses (LOCK WAIT)</text>
-          <text x="192" y="182" class="diag-sub">until Session A runs COMMIT/ROLLBACK</text>
-          <text x="192" y="204" class="diag-sub">or innodb_lock_wait_timeout (15s) expires.</text>
+          <line x1="212" y1="98" x2="174" y2="98" class="diag-arrow-danger" marker-end="url(#lock-arrow)"/>
+          <text x="192" y="160" class="diag-sub-accent">Session B pauses (LOCK WAIT)</text>
+          <text x="192" y="182" class="diag-sub-accent">until Session A runs COMMIT/ROLLBACK</text>
+          <text x="192" y="204" class="diag-sub-accent">or innodb_lock_wait_timeout (15s) expires.</text>
         </g>
         <g class="diag-node" data-node="deadlock" tabindex="0">
           <rect x="395" y="20" width="345" height="240" rx="4" class="diag-box"/>
           <text x="567" y="48" class="diag-title">Scenario 2: Circular Deadlock (1213)</text>
-          <rect x="420" y="72" width="125" height="52" rx="4" class="diag-box"/>
+          <rect x="420" y="72" width="125" height="52" rx="4" class="diag-inner-box"/>
           <text x="482" y="95" class="diag-title">Session A</text>
           <text x="482" y="113" class="diag-sub">Holds Row 1</text>
-          <rect x="590" y="72" width="125" height="52" rx="4" class="diag-box"/>
+          <rect x="590" y="72" width="125" height="52" rx="4" class="diag-inner-box"/>
           <text x="652" y="95" class="diag-title">Session B</text>
           <text x="652" y="113" class="diag-sub">Holds Row 2</text>
-          <path d="M 545 86 L 590 86" stroke="#a03530" stroke-width="2" marker-end="url(#lock-arrow)"/>
-          <path d="M 590 112 L 545 112" stroke="#a03530" stroke-width="2" marker-end="url(#lock-arrow)"/>
+          <path d="M 548 86 L 587 86" class="diag-arrow-danger" marker-end="url(#lock-arrow)"/>
+          <path d="M 587 112 L 548 112" class="diag-arrow-danger" marker-end="url(#lock-arrow)"/>
           <text x="567" y="160" class="diag-sub">A waits for Row 2 · B waits for Row 1</text>
           <text x="567" y="182" class="diag-sub">Neither can ever finish!</text>
           <text x="567" y="204" class="diag-sub">InnoDB immediately aborts one victim (Error 1213).</text>
@@ -342,58 +337,52 @@ window.CLASSROOM_DIAGRAMS = {
   'sql-execution-order': {
     caption: 'SQL Written Order vs Logical Execution Order — click any execution stage to inspect its rules',
     defaultNode: 'where',
-    viewBox: '0 0 760 330',
     svg: `
       <svg viewBox="0 0 760 330" class="diagram-svg" role="img" aria-label="SQL Logical Execution Order">
-        <defs>
-          <marker id="exec-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M 0 1 L 10 5 L 0 9 z" fill="#8b4b32"/>
-          </marker>
-        </defs>
-        <text x="190" y="24" class="diag-sub" font-weight="600">WRITTEN ORDER (Syntax)</text>
-        <text x="530" y="24" class="diag-sub" font-weight="600">LOGICAL EXECUTION ORDER (Click a stage)</text>
-        <rect x="45" y="42" width="290" height="260" rx="4" class="diag-box"/>
-        <text x="190" y="74" class="diag-title">1. SELECT  [DISTINCT] columns</text>
-        <text x="190" y="106" class="diag-title">2. FROM    tables + JOIN ... ON</text>
-        <text x="190" y="138" class="diag-title">3. WHERE   row_condition</text>
-        <text x="190" y="170" class="diag-title">4. GROUP BY grouping_cols</text>
-        <text x="190" y="202" class="diag-title">5. HAVING  group_condition</text>
-        <text x="190" y="234" class="diag-title">6. ORDER BY sort_cols</text>
-        <text x="190" y="266" class="diag-title">7. LIMIT   row_count</text>
+        <text x="155" y="24" class="diag-sub" font-weight="600">WRITTEN ORDER (Syntax)</text>
+        <text x="525" y="24" class="diag-sub" font-weight="600">LOGICAL EXECUTION ORDER (Click a stage)</text>
+        <rect x="20" y="42" width="270" height="260" rx="4" class="diag-box"/>
+        <text x="38" y="76" class="diag-code-line">1. SELECT  [DISTINCT] cols</text>
+        <text x="38" y="108" class="diag-code-line">2. FROM    tables + JOIN ON</text>
+        <text x="38" y="140" class="diag-code-line">3. WHERE   row_condition</text>
+        <text x="38" y="172" class="diag-code-line">4. GROUP BY grouping_cols</text>
+        <text x="38" y="204" class="diag-code-line">5. HAVING  group_condition</text>
+        <text x="38" y="236" class="diag-code-line">6. ORDER BY sort_cols</text>
+        <text x="38" y="268" class="diag-code-line">7. LIMIT   row_count</text>
         <g class="diag-node" data-node="from" tabindex="0">
-          <rect x="380" y="42" width="165" height="54" rx="4" class="diag-box"/>
-          <text x="462" y="65" class="diag-title">1. FROM / JOIN</text>
-          <text x="462" y="83" class="diag-sub">Combine &amp; match tables</text>
+          <rect x="310" y="42" width="210" height="54" rx="4" class="diag-box"/>
+          <text x="415" y="65" class="diag-title">1. FROM / JOIN</text>
+          <text x="415" y="83" class="diag-sub">Combine &amp; match tables</text>
         </g>
         <g class="diag-node" data-node="where" tabindex="0">
-          <rect x="565" y="42" width="165" height="54" rx="4" class="diag-box-accent"/>
-          <text x="647" y="65" class="diag-title-accent">2. WHERE</text>
-          <text x="647" y="83" class="diag-sub-accent">Filter individual rows</text>
+          <rect x="535" y="42" width="210" height="54" rx="4" class="diag-box-accent"/>
+          <text x="640" y="65" class="diag-title-accent">2. WHERE</text>
+          <text x="640" y="83" class="diag-sub-accent">Filter individual rows</text>
         </g>
         <g class="diag-node" data-node="groupby" tabindex="0">
-          <rect x="380" y="110" width="165" height="54" rx="4" class="diag-box"/>
-          <text x="462" y="133" class="diag-title">3. GROUP BY</text>
-          <text x="462" y="151" class="diag-sub">Form groups &amp; aggregates</text>
+          <rect x="310" y="110" width="210" height="54" rx="4" class="diag-box"/>
+          <text x="415" y="133" class="diag-title">3. GROUP BY</text>
+          <text x="415" y="151" class="diag-sub">Form groups &amp; aggregates</text>
         </g>
         <g class="diag-node" data-node="having" tabindex="0">
-          <rect x="565" y="110" width="165" height="54" rx="4" class="diag-box-accent"/>
-          <text x="647" y="133" class="diag-title-accent">4. HAVING</text>
-          <text x="647" y="151" class="diag-sub-accent">Filter whole groups</text>
+          <rect x="535" y="110" width="210" height="54" rx="4" class="diag-box-accent"/>
+          <text x="640" y="133" class="diag-title-accent">4. HAVING</text>
+          <text x="640" y="151" class="diag-sub-accent">Filter whole groups</text>
         </g>
         <g class="diag-node" data-node="select" tabindex="0">
-          <rect x="380" y="178" width="165" height="54" rx="4" class="diag-box"/>
-          <text x="462" y="201" class="diag-title">5. SELECT + DISTINCT</text>
-          <text x="462" y="219" class="diag-sub">Compute aliases &amp; deduplicate</text>
+          <rect x="310" y="178" width="210" height="54" rx="4" class="diag-box"/>
+          <text x="415" y="201" class="diag-title">5. SELECT / DISTINCT</text>
+          <text x="415" y="219" class="diag-sub">Project &amp; deduplicate</text>
         </g>
         <g class="diag-node" data-node="orderby" tabindex="0">
-          <rect x="565" y="178" width="165" height="54" rx="4" class="diag-box"/>
-          <text x="647" y="201" class="diag-title">6. ORDER BY</text>
-          <text x="647" y="219" class="diag-sub">Sort final result rows</text>
+          <rect x="535" y="178" width="210" height="54" rx="4" class="diag-box"/>
+          <text x="640" y="201" class="diag-title">6. ORDER BY</text>
+          <text x="640" y="219" class="diag-sub">Sort final result rows</text>
         </g>
         <g class="diag-node" data-node="limit" tabindex="0">
-          <rect x="380" y="246" width="350" height="54" rx="4" class="diag-box"/>
-          <text x="555" y="269" class="diag-title">7. LIMIT / OFFSET</text>
-          <text x="555" y="287" class="diag-sub">Slice final sorted output rows</text>
+          <rect x="310" y="246" width="435" height="54" rx="4" class="diag-box"/>
+          <text x="527" y="269" class="diag-title">7. LIMIT / OFFSET</text>
+          <text x="527" y="287" class="diag-sub">Slice final sorted output rows</text>
         </g>
       </svg>
     `,
@@ -431,41 +420,48 @@ window.CLASSROOM_DIAGRAMS = {
   'set-operations': {
     caption: 'SQL Set Operations Compared — click UNION, UNION ALL, INTERSECT, or EXCEPT',
     defaultNode: 'intersect',
-    viewBox: '0 0 760 270',
     svg: `
-      <svg viewBox="0 0 760 270" class="diagram-svg" role="img" aria-label="SQL Set Operations Comparison">
+      <svg viewBox="0 0 760 288" class="diagram-svg" role="img" aria-label="SQL Set Operations Comparison">
+        <defs>
+          <mask id="except-mask">
+            <rect x="575" y="18" width="165" height="175" fill="white"/>
+            <circle cx="675" cy="82" r="28" fill="black"/>
+          </mask>
+        </defs>
         <g class="diag-node" data-node="union" tabindex="0">
           <rect x="20" y="18" width="170" height="175" rx="4" class="diag-box"/>
-          <circle cx="82" cy="82" r="28" fill="#8b4b32" fill-opacity="0.28" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="128" cy="82" r="28" fill="#8b4b32" fill-opacity="0.28" stroke="#3f6048" stroke-width="2"/>
+          <circle cx="88" cy="82" r="28" class="diag-circle-a-fill"/>
+          <circle cx="122" cy="82" r="28" class="diag-circle-a-fill"/>
           <text x="105" y="142" class="diag-title">UNION</text>
           <text x="105" y="162" class="diag-sub">A ∪ B (Deduplicated)</text>
         </g>
         <g class="diag-node" data-node="union-all" tabindex="0">
           <rect x="205" y="18" width="170" height="175" rx="4" class="diag-box"/>
-          <circle cx="267" cy="82" r="28" fill="#8b4b32" fill-opacity="0.22" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="313" cy="82" r="28" fill="#3f6048" fill-opacity="0.22" stroke="#3f6048" stroke-width="2"/>
+          <circle cx="273" cy="82" r="28" class="diag-circle-a-fill"/>
+          <circle cx="307" cy="82" r="28" class="diag-circle-b-fill"/>
           <text x="290" y="142" class="diag-title">UNION ALL</text>
           <text x="290" y="162" class="diag-sub">A + B (Keeps duplicates)</text>
         </g>
         <g class="diag-node" data-node="intersect" tabindex="0">
           <rect x="390" y="18" width="170" height="175" rx="4" class="diag-box-accent"/>
-          <circle cx="452" cy="82" r="28" fill="none" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="498" cy="82" r="28" fill="none" stroke="#3f6048" stroke-width="2"/>
-          <path d="M 475 61 A 28 28 0 0 1 475 103 A 28 28 0 0 1 475 61" fill="#8b4b32" fill-opacity="0.45"/>
+          <circle cx="458" cy="82" r="28" class="diag-circle-a"/>
+          <circle cx="492" cy="82" r="28" class="diag-circle-b"/>
+          <path d="M 475 59.8 A 28 28 0 0 0 475 104.2 A 28 28 0 0 0 475 59.8 Z" class="diag-lens"/>
           <text x="475" y="142" class="diag-title-accent">INTERSECT</text>
           <text x="475" y="162" class="diag-sub-accent">A ∩ B (Common rows)</text>
         </g>
         <g class="diag-node" data-node="except" tabindex="0">
           <rect x="575" y="18" width="165" height="175" rx="4" class="diag-box"/>
-          <circle cx="635" cy="82" r="28" fill="#8b4b32" fill-opacity="0.32" stroke="#8b4b32" stroke-width="2"/>
-          <circle cx="680" cy="82" r="28" fill="#faf8f3" stroke="#3f6048" stroke-width="2"/>
+          <circle cx="641" cy="82" r="28" class="diag-circle-a-fill" mask="url(#except-mask)"/>
+          <circle cx="641" cy="82" r="28" class="diag-circle-a"/>
+          <circle cx="675" cy="82" r="28" class="diag-circle-b"/>
           <text x="657" y="142" class="diag-title">EXCEPT</text>
           <text x="657" y="162" class="diag-sub">A − B (In A, not B)</text>
         </g>
-        <rect x="20" y="208" width="720" height="46" rx="4" class="diag-box"/>
-        <text x="380" y="228" class="diag-title">Union-Compatibility Rules</text>
-        <text x="380" y="244" class="diag-sub">1. Same number of SELECT columns   2. Compatible column types in order   3. Output column names come from first SELECT; ORDER BY goes at the very end</text>
+        <rect x="20" y="206" width="720" height="66" rx="4" class="diag-box"/>
+        <text x="380" y="227" class="diag-title">Union-Compatibility Rules</text>
+        <text x="380" y="246" class="diag-sub">1. Same number of SELECT columns   ·   2. Compatible column types in order</text>
+        <text x="380" y="262" class="diag-sub">3. Output column names come from first SELECT; place ORDER BY at the very end</text>
       </svg>
     `,
     nodes: {

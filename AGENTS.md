@@ -7,19 +7,20 @@ This repository is a self-contained, Docker-based **Database Administration and 
 ## 1. Two-Fold Purpose
 
 1. **Instructor Classroom Console (Projector)**
-   - Start Docker, open the console in a browser, and teach linearly across all four units using **Next / Previous** or arrow keys (`←` / `→`).
+   - Start Docker, open the console in a browser, and teach across all four units via the **Zen Stage**, **Floating Dock** (`←`, `SQL Studio`, `Notes`, `Present` / `Exit`, `Next →`), **Curriculum Drawer** (`M`), **`⌘K` Command Palette**, and **`Paper` / `Dark`** theme toggle (plus `←` / `→` arrow keys and `S` for **Split SQL Studio**).
    - Every table, dataset, SVG diagram, multi-session lock demo, log toggle, and backup/restore demonstration runs live against MariaDB 11.4 inside Docker without host database installs.
+   - **Split SQL Studio** (`S`) exposes all 10 classroom and system-catalog databases (`college_demo`, `classroom_practice`, `sql_lab`, `security_lab`, `perf_lab`, `ops_lab`, `backup_lab`, `information_schema`, `performance_schema`, `mysql`) using step-appropriate MariaDB personas (`console` read-only on `college_demo`; `dba_lab` on Units 3–4 and system catalogs).
    - **Presentation mode** (`Present`) hides navigation chrome and scales lesson typography, SQL editors, result tables, and SVG diagrams for classroom projectors.
    - **Teacher notes** remain private via a separate synced **Speaker Notes** window (`?presenter=1` via `BroadcastChannel`) so notes do not cover the projected screen.
 2. **Student Self-Practice Lab**
-   - Switching to **Student Mode** hides instructor-only chrome/wording and unlocks progressive **Hints**, an inline **Live Schema Reference**, saved query drafts/history, and **Check my answer** auto-verification on practical SQL challenges.
-   - Students can run the identical environment on **Windows, Linux, or macOS** using Docker Desktop / Docker Engine.
+   - Switching to **Student** mode hides instructor-only chrome/wording and unlocks progressive **Hint 1 / 2**, an inline **Schema** reference drawer, saved query drafts/history (`Recent…`), and **✓ Check my answer** auto-verification on practical SQL challenges.
+   - Students can run the identical environment on **Windows, Linux, or macOS** using Docker Desktop / Docker Engine and connect DBeaver directly (`127.0.0.1:3307`).
 
 ---
 
 ## 2. Official Syllabus (MSCNS406 — Database Admins and Security)
 
-Source of truth: [WhatsApp Image 2026-09-16 at 11.12.33.jpeg](WhatsApp%20Image%202026-09-16%20at%2011.12.33.jpeg).
+Source of truth: [docs/mscns406-syllabus.jpeg](docs/mscns406-syllabus.jpeg).
 
 - **Unit 1 — Introductory concepts of DBMS (1 Credit · 10 Hrs)**
   - Introduction and applications of DBMS
@@ -80,7 +81,7 @@ Source of truth: [WhatsApp Image 2026-09-16 at 11.12.33.jpeg](WhatsApp%20Image%2
    - Every launcher merely `cd`s to the repo directory, runs `docker compose up -d --build --wait`, and prints the Console and Adminer URLs.
 4. **Port & URL flexibility:**
    - Support `.env` overrides via `CONSOLE_PORT` (default `8080`), `ADMINER_PORT` (default `8081`), and `DB_PORT` (default `3307`).
-   - Never hardcode `http://localhost:8081` in HTML; read the configured `adminerPort` from `/api/health` and adjust links using `location.hostname`.
+   - Never hardcode `http://localhost:8081` or fixed TCP ports in HTML; read the configured `adminerPort` and `dbPort` from `/api/health` and adjust links using `location.hostname`.
    - Do not hardcode `container_name` in `docker-compose.yml`.
 
 ---

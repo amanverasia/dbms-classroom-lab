@@ -4,7 +4,6 @@ import {
   closeClientSessions,
   connectAdmin,
   getCaCertificate,
-  getSessionStatus,
   HttpError,
   runSessionQuery,
   runSingleQuery
@@ -45,8 +44,17 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+async function withAdmin(database, fn, multipleStatements = true) {
+  const conn = await connectAdmin(database, multipleStatements);
+  try {
+    return await fn(conn);
+  } finally {
+    await conn.end().catch(() => {});
+  }
+}
+
 async function readJsonBody(req) {
-  const ctype = req.headers['content-type'] || '';
+  const ctype = String(req.headers['content-type'] || '').toLowerCase().trim();
   if (!ctype.startsWith('application/json')) {
     throw new HttpError(415, 'JSON required.');
   }
@@ -60,26 +68,30 @@ async function readJsonBody(req) {
     if (size > 256 * 1024) throw new HttpError(413, 'Request body too large.');
     chunks.push(chunk);
   }
+  let parsed;
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+    parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
   } catch {
     throw new HttpError(400, 'Malformed JSON request body.');
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new HttpError(400, 'JSON request body must be an object.');
+  }
+  return parsed;
 }
 
 async function handleRequest(req, res) {
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const url = new URL(req.url || '/', 'http://localhost');
   const pathname = url.pathname;
 
   if (req.method === 'GET' && pathname === '/api/health') {
-    const conn = await connectAdmin('college_demo');
-    try {
+    const data = await withAdmin('college_demo', async conn => {
       const [verRows] = await conn.query('SELECT VERSION() AS ver');
       const [vars] = await conn.query(
-        "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('have_ssl', 'performance_schema', 'general_log', 'slow_query_log', 'server_audit_logging')"
+        "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('have_ssl', 'performance_schema', 'server_audit_logging')"
       );
       const varMap = Object.fromEntries(vars.map(v => [v.Variable_name, v.Value]));
-      return sendJson(res, 200, {
+      return {
         ok: true,
         engine: 'MariaDB',
         version: verRows?.[0]?.ver || '11.4',
@@ -88,10 +100,9 @@ async function handleRequest(req, res) {
         ssl: varMap.have_ssl === 'YES',
         performanceSchema: varMap.performance_schema === 'ON',
         auditPlugin: Object.prototype.hasOwnProperty.call(varMap, 'server_audit_logging')
-      });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+      };
+    }, false);
+    return sendJson(res, 200, data);
   }
 
   if (req.method === 'GET' && pathname === '/api/certs/ca.pem') {
@@ -108,8 +119,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && pathname === '/api/schema') {
-    const db = url.searchParams.get('database') || 'college_demo';
-    return sendJson(res, 200, await getSchema(db));
+    return sendJson(res, 200, await getSchema(url.searchParams.get('database') || 'college_demo'));
   }
 
   if (req.method === 'GET' && pathname === '/api/admin/storage') {
@@ -121,18 +131,11 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && pathname === '/api/admin/logs') {
-    const type = url.searchParams.get('type') || 'error';
-    const lines = url.searchParams.get('lines') || '60';
-    return sendJson(res, 200, await getLogs(type, lines));
+    return sendJson(res, 200, await getLogs(url.searchParams.get('type') || 'error', url.searchParams.get('lines') || '60'));
   }
 
   if (req.method === 'GET' && pathname === '/api/admin/backup/status') {
     return sendJson(res, 200, await getBackupStatus());
-  }
-
-  if (req.method === 'GET' && pathname === '/api/session/status') {
-    const clientId = url.searchParams.get('clientId') || 'default';
-    return sendJson(res, 200, { sessions: getSessionStatus(clientId) });
   }
 
   if (req.method !== 'POST') {
@@ -192,87 +195,50 @@ async function handleRequest(req, res) {
   }
 
   if (pathname === '/api/prepare-unit2' || pathname === '/api/reset-unit2') {
-    const conn = await connectAdmin('sql_lab', true);
-    try {
-      const message = await prepareUnit2(conn, pathname === '/api/reset-unit2');
-      return sendJson(res, 200, { ok: true, message });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('sql_lab', conn => prepareUnit2(conn, pathname === '/api/reset-unit2'));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/prepare-course-notes') {
-    const conn = await connectAdmin('sql_lab', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await prepareCourseNotes(conn) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('sql_lab', conn => prepareCourseNotes(conn));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/prepare-course-roster') {
-    const conn = await connectAdmin('sql_lab', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await prepareCourseRosterView(conn) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('sql_lab', conn => prepareCourseRosterView(conn));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/reset-edit-copy') {
-    const conn = await connectAdmin('sql_lab', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await prepareEditCopy(conn) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('sql_lab', conn => prepareEditCopy(conn));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/prepare-practice') {
-    const conn = await connectAdmin('classroom_practice', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await preparePractice(conn, Boolean(body.seed)) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('classroom_practice', conn => preparePractice(conn, Boolean(body.seed)));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/reset-practice') {
-    const conn = await connectAdmin('classroom_practice', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await resetPractice(conn) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('classroom_practice', conn => resetPractice(conn));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/reset-unit3') {
     await closeClientSessions(body.clientId || 'default', 'unit3');
-    const conn = await connectAdmin('security_lab', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await prepareUnit3(conn, true) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('security_lab', conn => prepareUnit3(conn, true));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/reset-unit4') {
     await closeClientSessions(body.clientId || 'default', null);
-    const conn = await connectAdmin('perf_lab', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await prepareUnit4(conn, true) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('perf_lab', conn => prepareUnit4(conn, true));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/reset-unit4-perf') {
-    const conn = await connectAdmin('perf_lab', true);
-    try {
-      return sendJson(res, 200, { ok: true, message: await resetPerfIndexes(conn) });
-    } finally {
-      await conn.end().catch(() => {});
-    }
+    const message = await withAdmin('perf_lab', conn => resetPerfIndexes(conn));
+    return sendJson(res, 200, { ok: true, message });
   }
 
   if (pathname === '/api/reset-unit4-locks') {
@@ -300,6 +266,7 @@ const server = http.createServer(async (req, res) => {
   try {
     await handleRequest(req, res);
   } catch (err) {
+    if (res.headersSent) return res.end();
     if (err instanceof HttpError) {
       return sendJson(res, err.status, { error: err.message, code: err.code || undefined });
     }

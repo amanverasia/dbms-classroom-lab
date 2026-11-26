@@ -15,7 +15,49 @@ const STORAGE_CLIENT_ID = 'dbms-classroom-client-id-v1';
 const STORAGE_HISTORY = 'dbms-classroom-query-history-v1';
 const STORAGE_DRAFT_PREFIX = 'dbms-classroom-draft:';
 const STORAGE_THEME = 'dbms-classroom-theme-v1';
-const STORAGE_SIDEBAR = 'dbms-classroom-sidebar-v1';
+
+const CONSOLE_DBS = new Set(['college_demo', 'classroom_practice', 'sql_lab']);
+const DB_GROUPS = [
+  {
+    label: 'Units 1–2 · Practice',
+    options: [
+      ['college_demo', 'college_demo · Unit 1 (RO)'],
+      ['classroom_practice', 'classroom_practice · Unit 1 RW'],
+      ['sql_lab', 'sql_lab · Unit 2 RW']
+    ]
+  },
+  {
+    label: 'Units 3–4 · Admin & Ops',
+    options: [
+      ['security_lab', 'security_lab · Unit 3'],
+      ['perf_lab', 'perf_lab · Unit 4 (25k rows)'],
+      ['ops_lab', 'ops_lab · Unit 4 locks'],
+      ['backup_lab', 'backup_lab · Unit 4 backups']
+    ]
+  },
+  {
+    label: 'System Catalogs',
+    options: [
+      ['information_schema', 'information_schema'],
+      ['performance_schema', 'performance_schema'],
+      ['mysql', 'mysql · Grants']
+    ]
+  }
+];
+
+const DEFAULT_SQL_BY_DB = {
+  college_demo: 'SELECT * FROM students ORDER BY id;',
+  classroom_practice: 'SHOW TABLES;',
+  sql_lab: 'SELECT * FROM students ORDER BY id;',
+  security_lab: 'SELECT id, title, classification FROM course_records ORDER BY id;',
+  perf_lab: 'EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42;',
+  ops_lab: 'SELECT * FROM accounts ORDER BY id;',
+  backup_lab: 'SELECT * FROM fee_ledger ORDER BY receipt_no;',
+  information_schema: "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab') ORDER BY TABLE_SCHEMA, TABLE_NAME;",
+  performance_schema: 'SELECT SCHEMA_NAME, LEFT(DIGEST_TEXT, 90) AS digest, COUNT_STAR AS calls FROM performance_schema.events_statements_summary_by_digest WHERE SCHEMA_NAME IS NOT NULL ORDER BY SUM_TIMER_WAIT DESC LIMIT 10;',
+  mysql: 'SELECT User, Host, plugin, is_role, ssl_type FROM mysql.user ORDER BY User, Host;'
+};
+const DEFAULT_SQL_SET = new Set(Object.values(DEFAULT_SQL_BY_DB));
 
 const params = new URLSearchParams(location.search);
 const isSpeakerPopup = params.get('presenter') === '1';
@@ -29,7 +71,19 @@ let monitorPollTimer = null;
 let mode = loadMode();
 let theme = loadTheme();
 let progress = loadProgress();
+let drawerUnitId = 'u1';
+let expandedSectionId = null;
+let studioMode = 'none'; // 'none' | 'step' | 'scratch'
+let scratchRenderedForStep = false;
+let detectedAdminerPort = 8081;
 let channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('dbms-classroom-sync') : null;
+
+function fmtBytes(b) {
+  const n = Number(b || 0);
+  if (n >= 1048576) return `${(n / 1048576).toFixed(2)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${n} B`;
+}
 
 function loadTheme() {
   try {
@@ -42,6 +96,8 @@ function loadTheme() {
 function applyTheme(nextTheme) {
   theme = nextTheme === 'dark' ? 'dark' : 'light';
   document.body.classList.toggle('theme-dark', theme === 'dark');
+  const meta = $('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme === 'dark' ? '#141714' : '#faf8f3');
   const btn = $('#themeButton');
   if (btn) btn.textContent = theme === 'dark' ? 'Paper' : 'Dark';
   try {
@@ -50,11 +106,12 @@ function applyTheme(nextTheme) {
   channel?.postMessage({ type: 'theme', theme });
 }
 
-function applySidebarState(collapsed) {
-  document.body.classList.toggle('sidebar-collapsed', collapsed);
-  try {
-    localStorage.setItem(STORAGE_SIDEBAR, collapsed ? '1' : '0');
-  } catch {}
+function applyAdminerUrl(port = detectedAdminerPort) {
+  detectedAdminerPort = Number(port) || 8081;
+  const link = $('#adminerLink');
+  if (link) {
+    link.href = `${location.protocol}//${location.hostname}:${detectedAdminerPort}`;
+  }
 }
 
 function getClientId() {
@@ -194,7 +251,7 @@ async function api(endpoint, body, timeoutMs = 20000) {
 function markHealthOnline(versionText) {
   const h = $('#health');
   if (!h) return;
-  h.textContent = '● MariaDB connected';
+  h.textContent = '● Live';
   h.className = 'connection ready';
   if (versionText) h.title = `MariaDB ${versionText}`;
 }
@@ -252,10 +309,7 @@ async function health() {
   try {
     const result = await api('health', null, 6000);
     markHealthOnline(result.version);
-    const adminerLink = $('#adminerLink');
-    if (adminerLink && result.adminerPort) {
-      adminerLink.href = `${location.protocol}//${location.hostname}:${result.adminerPort}`;
-    }
+    if (result.adminerPort) applyAdminerUrl(result.adminerPort);
     if (result.dbPort) {
       if ($('#dbeaverPort')) $('#dbeaverPort').textContent = String(result.dbPort);
       if ($('#copyDbPort')) $('#copyDbPort').dataset.copy = String(result.dbPort);
@@ -267,8 +321,9 @@ async function health() {
   } catch {
     const h = $('#health');
     if (h) {
-      h.textContent = '○ MariaDB unavailable';
+      h.textContent = '○ Offline';
       h.className = 'connection offline';
+      h.title = 'MariaDB unavailable — check Docker';
     }
     if (!healthTimer) {
       healthTimer = setInterval(health, 12000);
@@ -301,31 +356,153 @@ function formatAnswerHTML(answer) {
   return looksSqlOrMultiline ? `<pre>${esc(text)}</pre>` : esc(text);
 }
 
+function stepTypeBadge(step) {
+  if (step.type === 'query') return 'SQL';
+  if (step.type === 'challenge') return 'Practice';
+  if (step.type === 'diagram') return 'Visual';
+  if (step.type === 'quiz') return 'Quiz';
+  if (['storage-lab', 'persona-lab', 'sqli-lab', 'log-lab', 'monitor-lab', 'dual-session', 'backup-lab', 'explorer', 'pipeline', 'copies', 'integrity', 'relationship', 'schema-instance'].includes(step.type)) {
+    return 'Lab';
+  }
+  return 'Concept';
+}
+
+/* Curriculum Slide-Over Drawer + Dock State */
+function renderDrawerSections(activeSection, activeStep) {
+  const unit = COURSE.units.find(u => u.id === drawerUnitId) || COURSE.units[0];
+  const unitNumber = COURSE.units.indexOf(unit) + 1;
+  const unitSections = sections.filter(s => s.unit === unit.id);
+
+  $('#drawerUnitTabs').innerHTML = COURSE.units
+    .map((u, idx) => {
+      const active = u.id === drawerUnitId;
+      return `<button class="drawer-unit-tab ${active ? 'active' : ''}" data-drawer-unit="${u.id}" role="tab" aria-selected="${active}" type="button">Unit ${idx + 1}</button>`;
+    })
+    .join('');
+
+  $$('[data-drawer-unit]').forEach(btn => {
+    btn.onclick = () => {
+      drawerUnitId = btn.dataset.drawerUnit;
+      const firstSec = sections.find(s => s.unit === drawerUnitId);
+      expandedSectionId = firstSec?.id || null;
+      renderDrawerSections(activeSection, activeStep);
+    };
+  });
+
+  $('#unitSummary').textContent = `Unit ${unitNumber}: ${unit.title} · ${unitSections.length} sections · ${unit.hours}h`;
+  $('#sectionNav').innerHTML = unitSections
+    .map(sec => {
+      const isActiveSec = sec === activeSection;
+      const isExpanded = expandedSectionId === sec.id;
+      return `<div class="drawer-sec-group ${isActiveSec ? 'active' : ''}">
+        <button class="drawer-sec-btn" data-toggle-sec="${esc(sec.id)}" type="button">
+          <span>${esc(sec.number)}</span>
+          <strong>${esc(sec.title)}</strong>
+          <small>${sec.steps.length} · ${isExpanded ? '▾' : '▸'}</small>
+        </button>
+        <div class="drawer-step-list" ${isExpanded ? '' : 'hidden'}>
+          ${sec.steps
+            .map(st => {
+              const done = progress.passed.has(`${sec.id}/${st.id}`);
+              const isCur = isActiveSec && st === activeStep;
+              return `<button class="drawer-step-btn ${isCur ? 'active' : ''} ${done ? 'done' : ''}" data-jump-path="${esc(sec.id)}/${esc(st.id)}" type="button">
+                <span>${esc(st.title)}</span>
+                <span class="step-tag">${stepTypeBadge(st)}</span>
+              </button>`;
+            })
+            .join('')}
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  $$('[data-toggle-sec]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.toggleSec;
+      expandedSectionId = expandedSectionId === id ? null : id;
+      renderDrawerSections(activeSection, activeStep);
+    };
+  });
+
+  $$('[data-jump-path]').forEach(btn => {
+    btn.onclick = () => {
+      const idx = locate(btn.dataset.jumpPath);
+      closeDrawer();
+      if (idx >= 0) go(idx);
+    };
+  });
+}
+
+function openDrawer() {
+  const { section, step } = allSteps[position];
+  drawerUnitId = section.unit;
+  expandedSectionId = section.id;
+  renderDrawerSections(section, step);
+  $('#drawerBackdrop').hidden = false;
+  $('#curriculumDrawer').hidden = false;
+  $('#drawerToggle')?.setAttribute('aria-expanded', 'true');
+}
+
+function closeDrawer() {
+  $('#drawerBackdrop').hidden = true;
+  $('#curriculumDrawer').hidden = true;
+  $('#drawerToggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function setStudioOpen(open) {
+  document.body.classList.toggle('studio-open', open);
+  $('#studioPane').hidden = !open;
+  const btn = $('#studioToggleBtn');
+  if (btn) {
+    btn.classList.toggle('active', open);
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'Hide Studio' : 'SQL Studio';
+  }
+}
+
+function toggleStudio() {
+  const isOpen = document.body.classList.contains('studio-open');
+  if (isOpen) {
+    setStudioOpen(false);
+    return;
+  }
+  const { section } = allSteps[position];
+  if (studioMode === 'step') {
+    setStudioOpen(true);
+    return;
+  }
+  if (!scratchRenderedForStep) {
+    const db = currentDatabase();
+    renderQuery(
+      $('#studioMount'),
+      {
+        database: db,
+        sql: DEFAULT_SQL_BY_DB[db] || 'SHOW TABLES;'
+      },
+      { isScratch: true, section }
+    );
+    scratchRenderedForStep = true;
+  }
+  studioMode = 'scratch';
+  setStudioOpen(true);
+}
+
 function renderNav(section, step) {
   const unit = COURSE.units.find(u => u.id === section.unit);
   const unitNumber = COURSE.units.indexOf(unit) + 1;
-  const unitSections = sections.filter(s => s.unit === section.unit);
   const unitSteps = allSteps.filter(item => item.section.unit === section.unit);
   const unitPosition = unitSteps.findIndex(item => item.step === step);
-
-  $('#currentUnitLabel').textContent = `Unit ${unitNumber} · ${unit.title}`;
-  $('#unitSummary').textContent = `${unitSections.length} sections · ${unit.hours} teaching hours`;
-  $('#sectionNav').setAttribute('aria-label', `Unit ${unitNumber} sections`);
-  $('#sectionNav').innerHTML = unitSections
-    .map(
-      s =>
-        `<button class="section-link ${s === section ? 'active' : ''}" data-section="${esc(s.id)}" ${
-          s === section ? 'aria-current="step"' : ''
-        } type="button"><span>${esc(s.number)}</span><strong>${esc(s.title)}</strong><small>${s.minutes} min</small></button>`
-    )
-    .join('');
-  $$('.section-link').forEach(button => {
-    button.onclick = () => go(allSteps.findIndex(item => item.section.id === button.dataset.section));
-  });
-
   const localIndex = section.steps.indexOf(step);
-  $('#sectionLabel').textContent = `Unit ${unitNumber} / ${section.number} ${section.title}`;
-  $('#stepCount').textContent = `Step ${localIndex + 1} of ${section.steps.length} · ${section.minutes} min section`;
+
+  $('#sectionLabel').textContent = `Unit ${unitNumber} · ${section.number} ${section.title}`;
+  $('#stepCount').textContent = `${localIndex + 1} / ${section.steps.length}`;
+  $('#dockTopicLabel').textContent = `${section.number} ${section.title} (${localIndex + 1}/${section.steps.length})`;
+
+  const pct = `${((unitPosition + 1) / unitSteps.length) * 100}%`;
+  $('#unitProgress').style.width = pct;
+  $('#drawerUnitProgress').style.width = pct;
+  $('#unitCount').textContent = `Unit ${unitNumber} · step ${unitPosition + 1} of ${unitSteps.length}`;
+
   $('#stepRail').innerHTML = section.steps
     .map((s, i) => {
       const done = progress.passed.has(`${section.id}/${s.id}`);
@@ -338,23 +515,21 @@ function renderNav(section, step) {
     .join('');
 
   $$('.step-dot').forEach(b => {
-    b.onclick = () =>
-      go(allSteps.findIndex(item => item.section === section && item.step.id === b.dataset.step));
+    b.onclick = () => go(allSteps.findIndex(item => item.section === section && item.step.id === b.dataset.step));
   });
 
-  $('#unitProgress').style.width = `${((unitPosition + 1) / unitSteps.length) * 100}%`;
-  $('#unitCount').textContent = `Unit ${unitNumber} · step ${unitPosition + 1} of ${unitSteps.length}`;
-  $('#footerLabel').textContent = `${section.number} · ${section.title}`;
-  $('#prevButton').disabled = position === 0;
+  if (!$('#curriculumDrawer').hidden) {
+    renderDrawerSections(section, step);
+  }
 
+  $('#prevButton').disabled = position === 0;
   const next = allSteps[position + 1];
   $('#nextButton').textContent = !next
-    ? 'Course complete ✓'
+    ? 'Complete ✓'
     : next.section.unit !== section.unit
-    ? `Next: Unit ${unitNumber + 1} →`
-    : next.section !== section
-    ? `Next: ${next.section.title} →`
+    ? `Unit ${unitNumber + 1} →`
     : 'Next →';
+  $('#nextButton').title = next ? `Next: ${next.section.number} ${next.step.title}` : 'End of course';
   $('#nextButton').disabled = !next;
 }
 
@@ -388,19 +563,36 @@ function go(index, updateHash = true) {
   const { section, step } = allSteps[position];
   const version = ++renderVersion;
 
+  drawerUnitId = section.unit;
+  expandedSectionId = section.id;
+
   if (updateHash) history.replaceState(null, '', `#${pathOf(allSteps[position])}`);
   try {
     localStorage.setItem(STORAGE_POS, pathOf(allSteps[position]));
-    $('#savedLabel').textContent = 'Your place is saved on this browser';
+    $('#savedLabel').textContent = 'Saved on this browser';
   } catch {
-    $('#savedLabel').textContent = 'Use the page link to save your place';
+    $('#savedLabel').textContent = 'Use bookmark URL to save';
   }
   document.title = `${section.number} ${section.title} · DBMS Classroom`;
+
+  const isSplitStep = step.type === 'query' || step.type === 'challenge';
+  const wideTypes = new Set(['storage-lab', 'persona-lab', 'sqli-lab', 'log-lab', 'monitor-lab', 'dual-session', 'backup-lab', 'diagram', 'comparison']);
+  $('#main').classList.toggle('wide-stage', wideTypes.has(step.type));
+
+  scratchRenderedForStep = false;
+  $('#studioMount').innerHTML = '';
+  if (isSplitStep) {
+    studioMode = 'step';
+    setStudioOpen(true);
+  } else {
+    studioMode = 'none';
+    setStudioOpen(false);
+  }
 
   renderNav(section, step);
   $('#lesson').innerHTML = `<p class="eyebrow">${esc(section.objective)}</p><h1>${esc(step.title)}</h1><p class="lead">${esc(step.lead)}</p><div id="demo" class="demo"></div>`;
 
-  const discussLabel = mode === 'student' ? 'Check your understanding' : 'Discuss';
+  const discussLabel = mode === 'student' ? 'Check your understanding' : 'Class Discussion';
   const revealLabel = mode === 'student' ? 'Show solution' : 'Reveal answer';
   $('#discussion').innerHTML = `<div class="discussion-top"><span class="eyebrow">${discussLabel}</span><button id="revealButton" type="button" aria-expanded="false" aria-controls="answer">${revealLabel}</button></div><p>${esc(step.question)}</p><div id="answer" class="answer" hidden>${formatAnswerHTML(step.answer)}</div>`;
   $('#revealButton').onclick = () => {
@@ -441,7 +633,7 @@ function renderDemo(section, step, version) {
       renderCopies(mount);
       break;
     case 'explorer':
-      renderExplorer(mount, version);
+      renderExplorer(mount, step.table || 'students', version);
       break;
     case 'integrity':
       renderIntegrity(mount);
@@ -452,9 +644,6 @@ function renderDemo(section, step, version) {
     case 'schema-instance':
       renderSchemaInstance(mount);
       break;
-    case 'layers':
-      renderLayers(mount);
-      break;
     case 'pipeline':
       renderPipeline(mount);
       break;
@@ -462,7 +651,7 @@ function renderDemo(section, step, version) {
       renderDiagram(mount, step.diagram);
       break;
     case 'query':
-      renderQuery(mount, step, false, section);
+      renderQuery($('#studioMount'), step, { isScratch: false, section, guideMount: mount });
       break;
     case 'challenge':
       renderChallenge(mount, section, step);
@@ -543,7 +732,7 @@ function renderCopies(mount) {
   draw();
 }
 
-async function renderExplorer(mount, version) {
+async function renderExplorer(mount, defaultTable, version) {
   mount.innerHTML =
     '<div class="demo-actions">' +
     ['students', 'courses', 'enrollments'].map(name => `<button data-table="${name}" type="button">${name}</button>`).join('') +
@@ -590,7 +779,7 @@ async function renderExplorer(mount, version) {
     }
   }
   $$('[data-table]', mount).forEach(b => (b.onclick = () => loadTable(b.dataset.table)));
-  loadTable('students');
+  loadTable(defaultTable);
 }
 
 function renderIntegrity(mount) {
@@ -604,6 +793,7 @@ function renderIntegrity(mount) {
     .join('')}</div><div id="candidateView" class="surface"><p class="empty">Choose a candidate and predict the outcome.</p></div><p id="candidateResult" class="status-line" aria-live="polite"></p>`;
   $$('[data-candidate]', mount).forEach(b => {
     b.onclick = () => {
+      $$('[data-candidate]', mount).forEach(x => x.classList.toggle('selected', x === b));
       const candidate = candidates[Number(b.dataset.candidate)];
       $('#candidateView').innerHTML = tableHTML(['id PRIMARY KEY', 'name', 'course_id FOREIGN KEY'], [candidate.row]);
       $('#candidateResult').textContent = candidate.message;
@@ -692,25 +882,6 @@ function renderSchemaInstance(mount) {
   draw();
 }
 
-function renderLayers(mount) {
-  const layers = [
-    ['External', 'What each user role sees', ['student_name', 'course'], [['Aman', 'Cybersecurity'], ['Riya', 'Database Security']], 'A teacher roster view exposes selected facts while hiding unrelated attributes.'],
-    ['Conceptual', 'The global logical schema', ['Table', 'Key / relationship'], [['students', 'id; course_id -> courses'], ['courses', 'id'], ['enrollments', 'id; (student_id, course_id)']], 'Tables, attributes, domains, and constraints define the logical system.'],
-    ['Internal', 'Physical storage structures', ['Structure', 'Purpose'], [['.ibd data pages', '16 KB B+Tree clustered index pages'], ['Secondary indexes', 'Fast access paths without changing SQL'], ['Redo / Undo / Buffer Pool', 'Durability, rollback, and RAM caching']], 'Storage details hidden beneath Conceptual–Internal mapping.']
-  ];
-  mount.innerHTML = `<div class="demo-actions">${layers
-    .map(([name], i) => `<button data-layer="${i}" type="button">${i + 1}. ${name}</button>`)
-    .join('')}</div><div id="layerView" class="surface"></div><p class="status-line" id="layerNote"></p>`;
-  function select(i) {
-    const layer = layers[i];
-    $$('[data-layer]', mount).forEach(b => b.classList.toggle('selected', Number(b.dataset.layer) === i));
-    $('#layerView').innerHTML = `<div class="surface-label">${esc(layer[1])}</div>${tableHTML(layer[2], layer[3])}`;
-    $('#layerNote').textContent = layer[4];
-  }
-  $$('[data-layer]', mount).forEach(b => (b.onclick = () => select(Number(b.dataset.layer))));
-  select(0);
-}
-
 function renderPipeline(mount) {
   const stages = [
     ['Request', 'Client sends SQL over an authenticated connection.'],
@@ -721,7 +892,7 @@ function renderPipeline(mount) {
   ];
   let stage = 0;
   function draw() {
-    mount.innerHTML = `<pre class="query-banner">SELECT name FROM students WHERE id = 1;</pre><div class="pipeline">${stages
+    mount.innerHTML = `<pre class="query-banner">SELECT id, name FROM students WHERE id = 1;</pre><div class="pipeline">${stages
       .map(([name], i) => `<button data-stage="${i}" class="${i === stage ? 'selected' : ''}" type="button"><span>${i + 1}</span>${name}</button>`)
       .join('')}</div><div class="card pipeline-detail"><h3>${stages[stage][0]}</h3><p>${stages[stage][1]}</p><button id="advancePipeline" type="button">${
       stage === stages.length - 1 ? 'Trace again ↺' : 'Follow query →'
@@ -786,7 +957,7 @@ function requestReset(kind, status, resultMount, onDone) {
       endpoint: 'reset-unit2',
       database: 'sql_lab',
       title: 'Reset Unit 2 data?',
-      button: 'Reset Unit 2 data',
+      button: 'Reset Unit 2',
       description: 'Restores Unit 2 students, courses, enrollments, payments, and student_edits; drops lesson views and course_notes.'
     },
     unit3: {
@@ -800,7 +971,7 @@ function requestReset(kind, status, resultMount, onDone) {
       endpoint: 'reset-unit4-perf',
       database: 'perf_lab',
       title: 'Reset perf_lab secondary indexes?',
-      button: 'Reset perf_lab indexes',
+      button: 'Reset Indexes',
       description: 'Drops custom secondary indexes on perf_lab.activity_events while preserving all 25,000 rows so EXPLAIN starts from a full scan.'
     },
     unit4: {
@@ -826,49 +997,76 @@ async function renderSchemaDrawer(drawerEl, database) {
       drawerEl.innerHTML = `<h4>${esc(database)}</h4><p class="note">No tables or views yet.</p>`;
       return;
     }
-    drawerEl.innerHTML = `<h4>${esc(database)} · ${data.objects.length} object(s)</h4>${data.objects
+    drawerEl.innerHTML = `<h4>${esc(database)} · ${data.objects.length} object(s)</h4><div class="schema-table-grid">${data.objects
       .map(
         obj =>
           `<div class="schema-table"><strong>${esc(obj.name)} <span class="badge">${obj.type === 'VIEW' ? 'VIEW' : `${obj.rows} rows`}</span></strong><small>${obj.columns
             .map(c => `${c.name} (${c.type}${c.key ? ' ' + c.key : ''}${c.nullable ? '' : ' NOT NULL'})`)
             .join('<br>')}</small></div>`
       )
-      .join('')}`;
+      .join('')}</div>`;
   } catch (err) {
     drawerEl.innerHTML = `<h4>Schema Reference</h4><p class="error">${esc(err.message)}</p>`;
   }
 }
 
-function renderQuery(mount, config, workspace = false, section = null) {
-  const unitId = section?.unit || currentUnit()?.id || 'u1';
+function resolvePersona(selectedDb, config, defaultDb) {
+  if (config.persona === 'tls_user' && ['security_lab', 'college_demo'].includes(selectedDb)) {
+    return 'tls_user';
+  }
+  if (CONSOLE_DBS.has(selectedDb)) {
+    if (config.persona && selectedDb === defaultDb) return config.persona;
+    return 'console';
+  }
+  return 'dba_lab';
+}
+
+function formatPersonaLabel(persona, selectedDb, persistent, sessionSlot, connId = null) {
+  if (persistent) {
+    return connId ? `Session #${connId} · ${persona}` : `Persistent (${sessionSlot}) · ${persona}`;
+  }
+  if (persona === 'tls_user') return 'TLS Required · tls_user';
+  if (persona === 'console') {
+    return selectedDb === 'college_demo' ? 'Read-only · classroom_console' : 'classroom_console';
+  }
+  if (persona === 'dba_lab') return 'DBA · dba_lab';
+  return persona;
+}
+
+function resolveResetAction(selectedDb, config, isScratch) {
+  if (config.resetKind === 'unit4-perf' && selectedDb === 'perf_lab') {
+    return { kind: 'unit4-perf', label: 'Reset Indexes' };
+  }
+  if (selectedDb === 'classroom_practice') return { kind: 'practice', label: 'Reset lab_students' };
+  if (selectedDb === 'sql_lab') return { kind: 'unit2', label: 'Reset Unit 2' };
+  if (selectedDb === 'security_lab') return { kind: 'unit3', label: 'Reset Unit 3' };
+  if (['perf_lab', 'ops_lab', 'backup_lab'].includes(selectedDb) || isScratch) {
+    if (['perf_lab', 'ops_lab', 'backup_lab'].includes(selectedDb)) {
+      return { kind: 'unit4', label: 'Reset Unit 4' };
+    }
+  }
+  return null;
+}
+
+function renderQuery(runnerMount, config, options = {}) {
+  const { isScratch = false, section = null, guideMount = null, persistDraftKey = null, openSchemaByDefault = isScratch } = options;
   const defaultDb = config.database || currentDatabase();
   const presets = config.presets || [];
-  const persona = config.persona || (unitId === 'u3' || unitId === 'u4' ? 'dba_lab' : 'console');
   const persistent = Boolean(config.persistent);
-  const showSchemaDefault = workspace;
+  const slotName = config.sessionSlot || 'unit3';
 
-  const consoleDbs = [
-    ['college_demo', 'college_demo · Unit 1 read-only'],
-    ['classroom_practice', 'classroom_practice · Unit 1 RW'],
-    ['sql_lab', 'sql_lab · Unit 2 RW']
-  ];
-  const adminDbs = [
-    ...consoleDbs,
-    ['security_lab', 'security_lab · Unit 3'],
-    ['perf_lab', 'perf_lab · Unit 4 (25k rows)'],
-    ['ops_lab', 'ops_lab · Unit 4 locks'],
-    ['backup_lab', 'backup_lab · Unit 4 backups'],
-    ['information_schema', 'information_schema · Data Dictionary'],
-    ['performance_schema', 'performance_schema · Telemetry'],
-    ['mysql', 'mysql · Accounts & Grants']
-  ];
-  const dbOptions = persona === 'console' ? consoleDbs : adminDbs;
+  const dbSelectHTML = DB_GROUPS.map(
+    g =>
+      `<optgroup label="${esc(g.label)}">${g.options
+        .map(([id, title]) => `<option value="${id}" ${id === defaultDb ? 'selected' : ''}>${esc(title)}</option>`)
+        .join('')}</optgroup>`
+  ).join('');
 
-  const draftKey = workspace ? `${STORAGE_DRAFT_PREFIX}${defaultDb}` : null;
-  let initialSql = config.sql || (defaultDb === 'classroom_practice' ? 'SHOW TABLES;' : 'SELECT * FROM students ORDER BY id;');
-  if (draftKey) {
+  const draftStorageKey = persistDraftKey || (isScratch ? `${STORAGE_DRAFT_PREFIX}${defaultDb}` : null);
+  let initialSql = config.sql || DEFAULT_SQL_BY_DB[defaultDb] || 'SHOW TABLES;';
+  if (draftStorageKey) {
     try {
-      const saved = sessionStorage.getItem(draftKey);
+      const saved = sessionStorage.getItem(draftStorageKey);
       if (saved) initialSql = saved;
     } catch {}
   }
@@ -879,102 +1077,129 @@ function renderQuery(mount, config, workspace = false, section = null) {
     ? 'prepare-practice'
     : null;
 
-  mount.innerHTML = `<div class="workspace-layout ${showSchemaDefault ? 'with-schema' : ''}">
-    <div class="query-shell">
-      <div class="query-toolbar">
-        <label>Database
-          <select class="database-select" aria-label="Query database">
-            ${dbOptions.map(([id, title]) => `<option value="${id}" ${id === defaultDb ? 'selected' : ''}>${title}</option>`).join('')}
-          </select>
-        </label>
-        <div class="query-meta">
-          ${config.tlsToggle ? `<label><input type="checkbox" class="tls-toggle" ${config.useTls ? 'checked' : ''}> Use TLS / SSL</label>` : ''}
-          <span class="persona-pill">${persistent ? `Persistent session (${esc(config.sessionSlot || 'unit3')})` : 'MariaDB'} · ${esc(persona)}</span>
-          ${workspace ? '<select class="history-select" aria-label="Recent query history"><option value="">Recent queries…</option></select>' : ''}
-          <button type="button" class="toggle-schema">${showSchemaDefault ? 'Hide schema' : 'Schema reference'}</button>
-        </div>
+  if (guideMount) {
+    guideMount.innerHTML = `
+      ${
+        presets.length
+          ? `<div class="guide-presets">
+              <p class="demo-caption">Examples — click to load into SQL Studio</p>
+              <div class="preset-chips">${presets.map(([title], i) => `<button data-preset="${i}" type="button">${esc(title)}</button>`).join('')}</div>
+            </div>`
+          : ''
+      }
+      ${
+        config.expected
+          ? `<details class="expected"><summary>${mode === 'student' ? 'Expected output' : 'Expected outcome · teacher reference'}</summary><p>${esc(config.expected)}</p></details>`
+          : ''
+      }`;
+  }
+
+  runnerMount.innerHTML = `<div class="studio-shell">
+    <div class="studio-header">
+      <div class="studio-header-left">
+        <select class="database-select" aria-label="Query database" title="${
+          persistent ? 'Persistent session: you can also run USE <db>; directly in SQL' : 'Select active database across all 4 units & catalogs'
+        }">${dbSelectHTML}</select>
+        <span class="persona-pill"></span>
+        ${config.tlsToggle ? `<label class="tls-label"><input type="checkbox" class="tls-toggle" ${config.useTls ? 'checked' : ''}> TLS/SSL</label>` : ''}
       </div>
-      ${presets.length ? `<div class="query-presets">${presets.map(([title], i) => `<button data-preset="${i}" type="button">${esc(title)}</button>`).join('')}</div>` : ''}
-      <div class="query-split">
-        <div class="query-editor-pane">
-          <textarea class="sql-editor" aria-label="SQL query" spellcheck="false">${esc(initialSql)}</textarea>
-          <div class="query-actions">
-            <span class="note">One statement · ⌘/Ctrl + Enter</span>
-            <div>
-              ${prepareEndpoint ? '<button class="prepare-query" type="button">Prepare example</button>' : ''}
-              ${config.inspectSql ? '<button class="inspect-query" type="button">Inspect result</button>' : ''}
-              ${persistent ? '<button class="reset-session" type="button">Reset session</button>' : ''}
-              <button class="reset-practice" type="button">Reset lab_students</button>
-              <button class="reset-edit" type="button">Restore edit copy</button>
-              <button class="reset-unit2" type="button">Reset Unit 2 data</button>
-              <button class="reset-unit3" type="button">Reset Unit 3</button>
-              <button class="reset-unit4-perf" type="button">Reset perf_lab indexes</button>
-              <button class="reset-unit4" type="button">Reset Unit 4</button>
-              <button class="run-query primary" type="button">Run query</button>
-            </div>
-          </div>
-        </div>
-        <div class="query-output-pane">
-          <div class="query-status" role="status">Ready to run${config.expected ? ' · predict the outcome first' : ''}</div>
-          <div class="query-result"></div>
-        </div>
+      <div class="studio-header-right">
+        <button type="button" class="studio-btn toggle-schema">Schema</button>
+        <button type="button" class="studio-btn copy-sql-btn" title="Copy SQL for DBeaver">Copy SQL</button>
+        ${persistent ? '<button class="studio-btn reset-session" type="button">Reset Session</button>' : ''}
+        <button class="studio-btn reset-edit-btn" type="button" hidden>Restore edit copy</button>
+        <button class="studio-btn reset-context-btn" type="button" hidden>Reset</button>
       </div>
     </div>
-    <aside class="schema-drawer" ${showSchemaDefault ? '' : 'hidden'}></aside>
-  </div>
-  ${
-    config.expected
-      ? `<details class="expected"><summary>${mode === 'student' ? 'Expected output' : 'Expected outcome · teacher reference'}</summary><p>${esc(config.expected)}</p></details>`
-      : ''
-  }`;
+    <aside class="studio-schema-panel" hidden></aside>
+    <div class="studio-editor-wrap">
+      <textarea class="sql-editor" aria-label="SQL query" spellcheck="false">${esc(initialSql)}</textarea>
+    </div>
+    <div class="studio-status-bar">
+      <div class="query-status" role="status">Ready · <code>${esc(defaultDb)}</code></div>
+      <div class="studio-run-actions">
+        ${isScratch || persistDraftKey ? '<select class="history-select" aria-label="Recent query history"><option value="">Recent…</option></select>' : ''}
+        ${prepareEndpoint ? '<button class="studio-btn prepare-query" type="button">Prepare</button>' : ''}
+        ${config.inspectSql ? '<button class="studio-btn inspect-query" type="button">Inspect</button>' : ''}
+        <button class="studio-btn primary run-query" type="button">Run ⌘↵</button>
+      </div>
+    </div>
+    <div class="studio-result"></div>
+  </div>`;
 
-  const layout = $('.workspace-layout', mount);
-  const editor = $('.sql-editor', mount);
-  const select = $('.database-select', mount);
-  const status = $('.query-status', mount);
-  const resultMount = $('.query-result', mount);
-  const schemaDrawer = $('.schema-drawer', mount);
-  const toggleSchemaBtn = $('.toggle-schema', mount);
-  const tlsToggle = $('.tls-toggle', mount);
-  const historySelect = $('.history-select', mount);
-  const personaPill = $('.persona-pill', mount);
+  const editor = $('.sql-editor', runnerMount);
+  const select = $('.database-select', runnerMount);
+  const status = $('.query-status', runnerMount);
+  const resultMount = $('.studio-result', runnerMount);
+  const schemaPanel = $('.studio-schema-panel', runnerMount);
+  const toggleSchemaBtn = $('.toggle-schema', runnerMount);
+  const tlsToggle = $('.tls-toggle', runnerMount);
+  const historySelect = $('.history-select', runnerMount);
+  const personaPill = $('.persona-pill', runnerMount);
+  const resetEditBtn = $('.reset-edit-btn', runnerMount);
+  const resetCtxBtn = $('.reset-context-btn', runnerMount);
 
+  let currentResetKind = null;
+  let activeConnId = null;
   let busy = false;
+
   function setBusy(value) {
     busy = value;
-    $$('button', mount).forEach(b => (b.disabled = value));
+    $$('button', runnerMount).forEach(b => (b.disabled = value));
     select.disabled = value;
     editor.readOnly = value;
   }
 
-  function updateResetButtons() {
+  function refreshPersonaAndResetUI() {
     const db = select.value;
-    $('.reset-practice', mount).hidden = !(db === 'classroom_practice' && (workspace || config.resetKind === 'practice'));
-    $('.reset-edit', mount).hidden = !(db === 'sql_lab' && (workspace || config.editCopy));
-    $('.reset-unit2', mount).hidden = !(db === 'sql_lab' && (workspace || unitId === 'u2'));
-    $('.reset-unit3', mount).hidden = !(workspace ? db === 'security_lab' : config.resetKind === 'unit3');
-    $('.reset-unit4-perf', mount).hidden = !(config.resetKind === 'unit4-perf');
-    $('.reset-unit4', mount).hidden = !(workspace && ['perf_lab', 'ops_lab', 'backup_lab'].includes(db));
+    const p = resolvePersona(db, config, defaultDb);
+    personaPill.textContent = formatPersonaLabel(p, db, persistent, slotName, activeConnId);
+    personaPill.classList.toggle('warn', (p === 'console' && db === 'college_demo') || p === 'tls_user');
+
+    resetEditBtn.hidden = !(db === 'sql_lab' && (isScratch || config.editCopy));
+    const resetInfo = resolveResetAction(db, config, isScratch);
+    if (resetInfo) {
+      currentResetKind = resetInfo.kind;
+      resetCtxBtn.textContent = resetInfo.label;
+      resetCtxBtn.hidden = false;
+    } else {
+      currentResetKind = null;
+      resetCtxBtn.hidden = true;
+    }
   }
 
   function populateHistory() {
     if (!historySelect) return;
     const hist = getHistory();
     historySelect.innerHTML =
-      '<option value="">Recent queries…</option>' +
-      hist.map((q, idx) => `<option value="${idx}">${esc(q.replace(/\s+/g, ' ').slice(0, 52))}</option>`).join('');
+      '<option value="">Recent…</option>' +
+      hist.map((q, idx) => `<option value="${idx}">${esc(q.replace(/\s+/g, ' ').slice(0, 48))}</option>`).join('');
   }
 
-  if (workspace) populateHistory();
-  updateResetButtons();
-  if (showSchemaDefault) renderSchemaDrawer(schemaDrawer, select.value);
+  if (historySelect) populateHistory();
+  if (openSchemaByDefault) {
+    schemaPanel.hidden = false;
+    toggleSchemaBtn.classList.add('selected');
+    toggleSchemaBtn.textContent = 'Hide Schema';
+    renderSchemaDrawer(schemaPanel, select.value);
+  }
+  refreshPersonaAndResetUI();
 
   toggleSchemaBtn.onclick = () => {
-    const opening = schemaDrawer.hidden;
-    schemaDrawer.hidden = !opening;
-    layout.classList.toggle('with-schema', opening);
-    toggleSchemaBtn.textContent = opening ? 'Hide schema' : 'Schema reference';
-    if (opening) renderSchemaDrawer(schemaDrawer, select.value);
+    const opening = schemaPanel.hidden;
+    schemaPanel.hidden = !opening;
+    toggleSchemaBtn.classList.toggle('selected', opening);
+    toggleSchemaBtn.textContent = opening ? 'Hide Schema' : 'Schema';
+    if (opening) renderSchemaDrawer(schemaPanel, select.value);
+  };
+
+  $('.copy-sql-btn', runnerMount).onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(editor.value);
+      notify('SQL copied — paste into DBeaver');
+    } catch {
+      notify('Copy from editor (Ctrl/Cmd+C)');
+    }
   };
 
   if (historySelect) {
@@ -991,29 +1216,41 @@ function renderQuery(mount, config, workspace = false, section = null) {
   }
 
   function saveDraft() {
-    if (!workspace) return;
-    try {
-      sessionStorage.setItem(`${STORAGE_DRAFT_PREFIX}${select.value}`, editor.value);
-    } catch {}
+    if (persistDraftKey) {
+      try {
+        sessionStorage.setItem(persistDraftKey, editor.value);
+      } catch {}
+    } else if (isScratch) {
+      try {
+        sessionStorage.setItem(`${STORAGE_DRAFT_PREFIX}${select.value}`, editor.value);
+      } catch {}
+    }
   }
   editor.addEventListener('input', saveDraft);
 
   select.onchange = () => {
-    updateResetButtons();
-    if (workspace) {
+    const db = select.value;
+    refreshPersonaAndResetUI();
+    if (isScratch) {
+      let loaded = null;
       try {
-        const saved = sessionStorage.getItem(`${STORAGE_DRAFT_PREFIX}${select.value}`);
-        if (saved) editor.value = saved;
+        loaded = sessionStorage.getItem(`${STORAGE_DRAFT_PREFIX}${db}`);
       } catch {}
+      if (loaded) {
+        editor.value = loaded;
+      } else if (!editor.value.trim() || DEFAULT_SQL_SET.has(editor.value.trim())) {
+        editor.value = DEFAULT_SQL_BY_DB[db] || 'SHOW TABLES;';
+      }
     }
-    if (!schemaDrawer.hidden) renderSchemaDrawer(schemaDrawer, select.value);
-    status.textContent = `Database ${select.value} selected · ready to run`;
+    if (!schemaPanel.hidden) renderSchemaDrawer(schemaPanel, db);
+    status.textContent = `Database ${db} selected · ready`;
     resultMount.innerHTML = '';
   };
 
   async function run(sql = editor.value, inspect = false) {
     if (busy) return;
     const selectedDb = select.value;
+    const effectivePersona = resolvePersona(selectedDb, config, defaultDb);
     setBusy(true);
     status.textContent = 'Running in MariaDB…';
     resultMount.innerHTML = '';
@@ -1023,35 +1260,36 @@ function renderQuery(mount, config, workspace = false, section = null) {
       if (persistent) {
         result = await api('session/query', {
           clientId: getClientId(),
-          slot: config.sessionSlot || 'unit3',
+          slot: slotName,
           sql,
           database: selectedDb,
-          persona,
+          persona: effectivePersona,
           useTls
         });
         saveHistory(sql);
-        personaPill.textContent = `Session #${result.connectionId} · DB: ${result.database || 'none'} · ${result.persona}`;
+        activeConnId = result.connectionId;
+        personaPill.textContent = `Session #${result.connectionId} · ${result.database || 'none'} · ${result.persona}`;
       } else {
         result = await query(sql, selectedDb, {
-          persona,
+          persona: effectivePersona,
           useTls,
           includeSslCipher: Boolean(config.tlsToggle)
         });
       }
-      if (workspace) populateHistory();
+      if (historySelect) populateHistory();
       resultMount.innerHTML = result.columns.length
         ? tableHTML(result.columns, result.rows)
         : `<p class="success result-message">${esc(result.message)} ${result.affected} row(s) affected.</p>`;
       const tlsNote = result.sslCipher ? ` · TLS: ${result.sslCipher}` : '';
-      status.textContent = `${inspect ? 'Inspection · ' : ''}${result.database || selectedDb} · ${
-        result.columns.length ? `${result.count} row(s) returned` : `${result.affected} row(s) affected`
-      } · ${result.ms} ms${result.truncated ? ' · first 200 shown' : ''}${tlsNote}`;
-      if (!schemaDrawer.hidden && /^\s*(CREATE|ALTER|DROP|TRUNCATE)/i.test(sql)) {
-        renderSchemaDrawer(schemaDrawer, result.database || selectedDb);
+      status.textContent = `${inspect ? 'Inspect · ' : ''}${result.database || selectedDb} · ${
+        result.columns.length ? `${result.count} row(s)` : `${result.affected} affected`
+      } · ${result.ms} ms${result.truncated ? ' (first 200)' : ''}${tlsNote}`;
+      if (!schemaPanel.hidden && /^\s*(CREATE|ALTER|DROP|TRUNCATE)/i.test(sql)) {
+        renderSchemaDrawer(schemaPanel, result.database || selectedDb);
       }
       return result;
     } catch (error) {
-      status.textContent = `MariaDB rejected statement${error.code ? ` (Error ${error.code})` : ''}`;
+      status.textContent = `Rejected${error.code ? ` (Error ${error.code})` : ''}`;
       resultMount.innerHTML = `<p class="error result-message">${esc(error.message)}</p>`;
       return null;
     } finally {
@@ -1059,25 +1297,32 @@ function renderQuery(mount, config, workspace = false, section = null) {
     }
   }
 
-  $('.run-query', mount).onclick = () => run();
-  if ($('.inspect-query', mount)) $('.inspect-query', mount).onclick = () => run(config.inspectSql, true);
+  $('.run-query', runnerMount).onclick = () => run();
+  if ($('.inspect-query', runnerMount)) $('.inspect-query', runnerMount).onclick = () => run(config.inspectSql, true);
   editor.onkeydown = e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       run();
     }
   };
-  $$('[data-preset]', mount).forEach(b => {
-    b.onclick = () => {
-      editor.value = presets[Number(b.dataset.preset)][1];
-      saveDraft();
-      status.textContent = 'Example loaded · predict outcome, then Run';
-      resultMount.innerHTML = '';
-    };
-  });
 
-  if ($('.prepare-query', mount)) {
-    $('.prepare-query', mount).onclick = async () => {
+  if (guideMount) {
+    $$('[data-preset]', guideMount).forEach(b => {
+      b.onclick = () => {
+        if (!document.body.classList.contains('studio-open')) setStudioOpen(true);
+        $$('[data-preset]', guideMount).forEach(x => x.classList.remove('selected'));
+        b.classList.add('selected');
+        editor.value = presets[Number(b.dataset.preset)][1];
+        saveDraft();
+        status.textContent = 'Preset loaded · Run ⌘↵ to execute';
+        resultMount.innerHTML = '';
+        editor.focus();
+      };
+    });
+  }
+
+  if ($('.prepare-query', runnerMount)) {
+    $('.prepare-query', runnerMount).onclick = async () => {
       if (busy) return;
       setBusy(true);
       try {
@@ -1087,7 +1332,7 @@ function renderQuery(mount, config, workspace = false, section = null) {
         });
         status.textContent = res.message || 'Example prepared.';
         resultMount.innerHTML = '';
-        if (!schemaDrawer.hidden) renderSchemaDrawer(schemaDrawer, select.value);
+        if (!schemaPanel.hidden) renderSchemaDrawer(schemaPanel, select.value);
       } catch (err) {
         resultMount.innerHTML = `<p class="error result-message">${esc(err.message)}</p>`;
       } finally {
@@ -1096,13 +1341,14 @@ function renderQuery(mount, config, workspace = false, section = null) {
     };
   }
 
-  if ($('.reset-session', mount)) {
-    $('.reset-session', mount).onclick = async () => {
+  if ($('.reset-session', runnerMount)) {
+    $('.reset-session', runnerMount).onclick = async () => {
       if (busy) return;
       setBusy(true);
       try {
-        await api('session/reset', { clientId: getClientId(), slot: config.sessionSlot || 'unit3' });
-        personaPill.textContent = `Persistent session (${config.sessionSlot || 'unit3'}) · ${persona}`;
+        await api('session/reset', { clientId: getClientId(), slot: slotName });
+        activeConnId = null;
+        refreshPersonaAndResetUI();
         status.textContent = 'Persistent session connection reset cleanly.';
         resultMount.innerHTML = '';
       } catch (err) {
@@ -1113,14 +1359,18 @@ function renderQuery(mount, config, workspace = false, section = null) {
     };
   }
 
-  $('.reset-practice', mount).onclick = () => requestReset('practice', status, resultMount);
-  $('.reset-edit', mount).onclick = () => requestReset('edit', status, resultMount);
-  $('.reset-unit2', mount).onclick = () => requestReset('unit2', status, resultMount);
-  $('.reset-unit3', mount).onclick = () => requestReset('unit3', status, resultMount);
-  $('.reset-unit4-perf', mount).onclick = () => requestReset('unit4-perf', status, resultMount);
-  $('.reset-unit4', mount).onclick = () => requestReset('unit4', status, resultMount);
+  const onResetDone = () => {
+    if (!schemaPanel.hidden) renderSchemaDrawer(schemaPanel, select.value);
+  };
+  resetEditBtn.onclick = () => requestReset('edit', status, resultMount, onResetDone);
+  resetCtxBtn.onclick = () => {
+    if (currentResetKind) requestReset(currentResetKind, status, resultMount, onResetDone);
+  };
 
-  return { getSql: () => editor.value, getDb: () => select.value, showCheckResult: () => {} };
+  return {
+    getSql: () => editor.value,
+    getDb: () => select.value
+  };
 }
 
 function renderChallenge(mount, section, step) {
@@ -1130,38 +1380,53 @@ function renderChallenge(mount, section, step) {
     <div class="challenge-header">
       <div>
         <h3>${mode === 'student' ? 'Hands-on practice' : 'Pause for student work'}</h3>
-        <span class="note">Database: <code>${esc(step.database || 'classroom_practice')}</code></span>
+        <span class="note">Write SQL on the right pane · DB: <code>${esc(step.database || 'classroom_practice')}</code></span>
       </div>
       <div>
         ${done ? '<span class="badge ok">✓ Verified</span>' : '<span class="badge">Practice exercise</span>'}
       </div>
     </div>
-    <div id="challengeQueryMount"></div>
     <div class="hints-bar">
-      ${step.check ? '<button id="checkAnswerBtn" class="primary" type="button">Check my answer</button>' : ''}
-      ${hints.map((_, idx) => `<button class="hint-btn" data-hint="${idx}" type="button">Show hint ${idx + 1}</button>`).join('')}
+      ${step.check ? '<button id="checkAnswerBtn" class="primary" type="button">✓ Check my answer</button>' : ''}
+      ${hints.map((_, idx) => `<button class="hint-btn" data-hint="${idx}" type="button">Hint ${idx + 1}</button>`).join('')}
     </div>
     <div id="hintMount"></div>
     <div id="checkBanner"></div>
   </div>`;
 
-  const starterSql =
-    step.check?.kind === 'table-check'
-      ? `-- Step 1: CREATE TABLE ${step.check.table} (...);\n-- Step 2: INSERT INTO ${step.check.table} (...) VALUES (...);\n-- Run one statement at a time, then click Check my answer.`
-      : '-- Write your SQL query here, run it to preview, then click Check my answer.';
+  const starterSql = !step.check
+    ? `-- Explore and draft your SQL in ${step.database || 'classroom_practice'} here, then reveal the model answer.`
+    : step.check.kind === 'table-check'
+    ? `-- Step 1: CREATE TABLE ${step.check.table} (...);\n-- Step 2: INSERT INTO ${step.check.table} (...) VALUES (...);\n-- Run one statement at a time, then click Check my answer.`
+    : '-- Write your SQL query here, Run ⌘↵ to preview, then click Check my answer.';
 
-  renderQuery($('#challengeQueryMount', mount), {
-    database: step.database || 'classroom_practice',
-    persona: step.persona,
-    sql: starterSql
-  }, false, section);
+  const runner = renderQuery(
+    $('#studioMount'),
+    {
+      database: step.database || 'classroom_practice',
+      persona: step.persona,
+      sql: starterSql
+    },
+    {
+      isScratch: false,
+      section,
+      persistDraftKey: `${STORAGE_DRAFT_PREFIX}step:${section.id}/${step.id}`,
+      openSchemaByDefault: mode === 'student'
+    }
+  );
 
-  const editor = $('.sql-editor', mount);
-  const dbSelect = $('.database-select', mount);
-
+  let activeHint = null;
   $$('.hint-btn', mount).forEach(btn => {
     btn.onclick = () => {
       const idx = Number(btn.dataset.hint);
+      if (activeHint === idx) {
+        activeHint = null;
+        btn.classList.remove('selected');
+        $('#hintMount', mount).innerHTML = '';
+        return;
+      }
+      activeHint = idx;
+      $$('.hint-btn', mount).forEach(x => x.classList.toggle('selected', x === btn));
       $('#hintMount', mount).innerHTML = `<div class="hint-card"><strong>Hint ${idx + 1}:</strong> ${esc(hints[idx])}</div>`;
     };
   });
@@ -1173,8 +1438,8 @@ function renderChallenge(mount, section, step) {
       btn.textContent = 'Checking…';
       try {
         const res = await api('check-answer', {
-          sql: editor.value,
-          database: dbSelect.value,
+          sql: runner.getSql(),
+          database: step.check.database || runner.getDb(),
           checkSpec: step.check
         });
         $('#checkBanner', mount).innerHTML = `<div class="check-banner ${res.passed ? 'pass' : 'fail'}">${esc(res.message)}</div>`;
@@ -1190,7 +1455,7 @@ function renderChallenge(mount, section, step) {
         $('#checkBanner', mount).innerHTML = `<div class="check-banner fail">${esc(err.message)}</div>`;
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Check my answer';
+        btn.textContent = '✓ Check my answer';
       }
     };
   }
@@ -1203,19 +1468,25 @@ async function renderStorageLab(mount, version) {
     try {
       const data = await api('admin/storage');
       if (version !== renderVersion) return;
-      const fmtBytes = b => (b >= 1048576 ? `${(b / 1048576).toFixed(2)} MB` : `${(b / 1024).toFixed(1)} KB`);
       out.innerHTML = `
         <div class="kpi-grid">
           <div class="kpi-card"><small>Page Size</small><strong>${esc(data.variables.innodb_page_size || '16384')} B</strong></div>
           <div class="kpi-card"><small>File-Per-Table</small><strong>${esc(data.variables.innodb_file_per_table || 'ON')}</strong></div>
-          <div class="kpi-card"><small>Buffer Pool Size</small><strong>${fmtBytes(Number(data.variables.innodb_buffer_pool_size || 0))}</strong></div>
+          <div class="kpi-card"><small>Buffer Pool Size</small><strong>${fmtBytes(data.variables.innodb_buffer_pool_size)}</strong></div>
         </div>
         <h3>Root InnoDB / Log Files in /var/lib/mysql</h3>
         <div class="surface">${tableHTML(['File', 'Size'], data.rootFiles.map(f => [f.name, fmtBytes(f.sizeBytes)]))}</div>
-        <h3 style="margin-top:16px">Per-Database .ibd Table Files</h3>
+        <h3 class="mt-16">Per-Table .ibd Data Files on Disk</h3>
         <div class="surface">${tableHTML(
           ['Schema', 'File', 'Disk Size'],
-          data.schemaFiles.flatMap(s => s.files.slice(0, 6).map(f => [s.schema, f.name, fmtBytes(f.sizeBytes)]))
+          data.schemaFiles.flatMap(s =>
+            s.files.filter(f => f.name.endsWith('.ibd')).slice(0, 6).map(f => [s.schema, f.name, fmtBytes(f.sizeBytes)])
+          )
+        )}</div>
+        <h3 class="mt-16">INFORMATION_SCHEMA.TABLES Storage Metrics</h3>
+        <div class="surface">${tableHTML(
+          ['Schema', 'Table', 'Engine', 'Rows', 'Data', 'Index', 'Free'],
+          (data.tables || []).slice(0, 12).map(t => [t.schema, t.name, t.engine, t.rows, fmtBytes(t.dataBytes), fmtBytes(t.indexBytes), fmtBytes(t.freeBytes)])
         )}</div>`;
     } catch (err) {
       if (version === renderVersion) out.innerHTML = `<p class="error">${esc(err.message)}</p>`;
@@ -1228,7 +1499,7 @@ async function renderStorageLab(mount, version) {
 function renderPersonaLab(mount) {
   const presets = [
     ['SELECT students (college_demo)', 'SELECT id, name, email FROM students ORDER BY id;', 'college_demo'],
-    ['INSERT student (college_demo)', "INSERT INTO students (name, email, age) VALUES ('Test', 't@example.com', 20);", 'college_demo'],
+    ['INSERT course record (security_lab)', "INSERT INTO course_records (title, classification) VALUES ('Audit Lab Handout', 'internal');", 'security_lab'],
     ['DELETE student (college_demo)', 'DELETE FROM students WHERE id = 1;', 'college_demo'],
     ['DROP TABLE (security_lab)', 'DROP TABLE course_records;', 'security_lab'],
     ['Read portal_users (security_lab)', 'SELECT id, username, role_name FROM portal_users ORDER BY id;', 'security_lab'],
@@ -1241,7 +1512,7 @@ function renderPersonaLab(mount) {
         <label for="personaSelect">Database Identity (Persona)</label>
         <select id="personaSelect">
           <option value="reporting">reporting (SELECT only on college_demo, sql_lab, security_lab)</option>
-          <option value="web_app">web_app (SELECT, INSERT, UPDATE on college_demo, security_lab)</option>
+          <option value="web_app">web_app (SELECT on college_demo; SELECT/INSERT/UPDATE on security_lab)</option>
           <option value="console">classroom_console (Units 1-2 console identity)</option>
           <option value="dba_lab">dba_lab (Full administrative lab identity)</option>
           <option value="custom">Custom user created in Unit 3…</option>
@@ -1264,7 +1535,7 @@ function renderPersonaLab(mount) {
     <div class="demo-actions">${presets.map(([label], i) => `<button data-p="${i}" type="button">${esc(label)}</button>`).join('')}</div>
     <textarea id="personaSql" class="sql-editor" spellcheck="false">SELECT id, name, email FROM students ORDER BY id;</textarea>
     <div class="demo-actions">
-      <button id="runPersonaBtn" class="primary" type="button">Execute as selected persona</button>
+      <button id="runPersonaBtn" class="primary" type="button">Execute as selected persona (⌘↵)</button>
       <button id="resetUnit3Persona" type="button">Reset Unit 3</button>
     </div>
     <div id="personaStatus" class="status-line">Choose a persona and query to test MariaDB privilege enforcement.</div>
@@ -1280,13 +1551,13 @@ function renderPersonaLab(mount) {
   };
   $$('[data-p]', mount).forEach(b => {
     b.onclick = () => {
+      $$('[data-p]', mount).forEach(x => x.classList.toggle('selected', x === b));
       const [, q, db] = presets[Number(b.dataset.p)];
       sqlBox.value = q;
       dbSel.value = db;
     };
   });
-  $('#resetUnit3Persona', mount).onclick = () => requestReset('unit3', $('#personaStatus', mount), $('#personaOut', mount));
-  $('#runPersonaBtn', mount).onclick = async () => {
+  async function execPersona() {
     const out = $('#personaOut', mount);
     const st = $('#personaStatus', mount);
     st.textContent = 'Running in MariaDB…';
@@ -1303,6 +1574,14 @@ function renderPersonaLab(mount) {
     } catch (err) {
       st.textContent = `Denied / Failed${err.code ? ` (Error ${err.code})` : ''}`;
       out.innerHTML = `<p class="error result-message">${esc(err.message)}</p>`;
+    }
+  }
+  $('#resetUnit3Persona', mount).onclick = () => requestReset('unit3', $('#personaStatus', mount), $('#personaOut', mount));
+  $('#runPersonaBtn', mount).onclick = execPersona;
+  sqlBox.onkeydown = e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      execPersona();
     }
   };
 }
@@ -1326,6 +1605,7 @@ function renderSqliLab(mount) {
   const pIn = $('#sqliPass', mount);
   $$('[data-sqli]', mount).forEach(b => {
     b.onclick = () => {
+      $$('[data-sqli]', mount).forEach(x => x.classList.toggle('selected', x === b));
       const k = b.dataset.sqli;
       if (k === 'normal') {
         uIn.value = 'aman';
@@ -1347,19 +1627,19 @@ function renderSqliLab(mount) {
     try {
       const res = await api('admin/sqli-demo', { username: uIn.value, password: pIn.value });
       out.innerHTML = `<div class="lab-grid-2">
-        <div class="surface" style="padding:14px">
+        <div class="surface pad-14">
           <p class="eyebrow"><span class="badge err">VULNERABLE</span> String Concatenation</p>
           <pre class="code-block">${esc(res.vulnerable.sql)}</pre>
-          <div style="margin-top:10px">${
+          <div class="mt-12">${
             res.vulnerable.error
               ? `<p class="error">${esc(res.vulnerable.error)}</p>`
               : tableHTML(res.vulnerable.columns, res.vulnerable.rows)
           }</div>
         </div>
-        <div class="surface" style="padding:14px">
+        <div class="surface pad-14">
           <p class="eyebrow"><span class="badge ok">SAFE</span> Parameterized Query (?)</p>
           <pre class="code-block">${esc(res.safe.sql)}\nParams: ${esc(JSON.stringify(res.safe.params))}</pre>
-          <div style="margin-top:10px">${
+          <div class="mt-12">${
             res.safe.error ? `<p class="error">${esc(res.safe.error)}</p>` : tableHTML(res.safe.columns, res.safe.rows)
           }</div>
         </div>
@@ -1368,12 +1648,21 @@ function renderSqliLab(mount) {
       out.innerHTML = `<p class="error">${esc(err.message)}</p>`;
     }
   }
+  [uIn, pIn].forEach(el => {
+    el.onkeydown = e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        run();
+      }
+    };
+  });
   $('#runSqliBtn', mount).onclick = run;
   run();
 }
 
 function renderLogLab(mount, defaultTab, version) {
   let activeTab = defaultTab || 'slow';
+  let selectedEvents = 'CONNECT,QUERY,TABLE';
   mount.innerHTML = `<div class="lab-panel">
     <div id="logControls" class="demo-actions"></div>
     <div class="demo-actions">
@@ -1405,10 +1694,20 @@ function renderLogLab(mount, defaultTab, version) {
       const genOn = cfg.general_log === 'ON';
       const slowOn = cfg.slow_query_log === 'ON';
       const audOn = cfg.server_audit_logging === 'ON';
+      if (cfg.server_audit_events) selectedEvents = cfg.server_audit_events;
       $('#logControls', mount).innerHTML = `
         <button id="togGen" class="${genOn ? 'selected' : ''}" type="button">general_log: ${genOn ? 'ON' : 'OFF'}</button>
         <button id="togSlow" class="${slowOn ? 'selected' : ''}" type="button">slow_query_log: ${slowOn ? 'ON' : 'OFF'} (&gt;${esc(cfg.long_query_time)}s)</button>
         <button id="togAudit" class="${audOn ? 'selected' : ''}" type="button">server_audit_logging: ${audOn ? 'ON' : 'OFF'}</button>
+        <select id="auditEventSelect" class="database-select" aria-label="Audit event categories">
+          ${[
+            ['CONNECT,QUERY,TABLE', 'Events: CONNECT, QUERY, TABLE'],
+            ['CONNECT,QUERY_DDL,QUERY_DCL', 'Events: CONNECT, DDL, DCL'],
+            ['CONNECT,QUERY_DML,TABLE', 'Events: CONNECT, DML, TABLE']
+          ]
+            .map(([v, lbl]) => `<option value="${v}" ${selectedEvents === v ? 'selected' : ''}>${lbl}</option>`)
+            .join('')}
+        </select>
         <button id="trigSlow" type="button">Trigger 0.7s slow query</button>
       `;
       $('#togGen', mount).onclick = async () => {
@@ -1429,11 +1728,23 @@ function renderLogLab(mount, defaultTab, version) {
           notify(err.message);
         }
       };
+      const applyAudit = async enabled => {
+        const events = $('#auditEventSelect', mount).value.split(',').filter(Boolean);
+        const r = await api('admin/logs/toggle', { target: 'audit', enabled, value: events });
+        notify(r.executedSql);
+        refresh(r.executedSql);
+      };
       $('#togAudit', mount).onclick = async () => {
         try {
-          const r = await api('admin/logs/toggle', { target: 'audit', enabled: !audOn, value: ['CONNECT', 'QUERY', 'TABLE'] });
-          notify(r.executedSql);
-          refresh(r.executedSql);
+          await applyAudit(!audOn);
+        } catch (err) {
+          notify(err.message);
+        }
+      };
+      $('#auditEventSelect', mount).onchange = async () => {
+        selectedEvents = $('#auditEventSelect', mount).value;
+        try {
+          await applyAudit(audOn);
         } catch (err) {
           notify(err.message);
         }
@@ -1454,7 +1765,7 @@ function renderLogLab(mount, defaultTab, version) {
 
       $('#logMeta', mount).textContent =
         activeTab === 'binlog'
-          ? `Binary logs (${(data.binlogs || []).map(b => `${b.name}: ${b.sizeBytes} B`).join(', ')})`
+          ? `Binary logs (${(data.binlogs || []).map(b => `${b.name}: ${fmtBytes(b.sizeBytes)}`).join(', ')})`
           : `File: ${data.file || activeTab} · Audit events: ${cfg.server_audit_events || 'n/a'}`;
       $('#logOutput', mount).textContent = data.content || '(Empty)';
       const viewer = $('#logOutput', mount);
@@ -1471,12 +1782,13 @@ function renderLogLab(mount, defaultTab, version) {
       refresh();
     };
   });
-  $('#refreshLogBtn', mount).onclick = refresh;
+  $('#refreshLogBtn', mount).onclick = () => refresh();
   refresh();
 }
 
 function renderMonitorLab(mount, version) {
   let autoRefresh = false;
+  let loading = false;
   mount.innerHTML = `<div class="lab-panel">
     <div class="demo-actions">
       <button id="refreshMetricsBtn" class="primary" type="button">↻ Refresh metrics</button>
@@ -1486,6 +1798,8 @@ function renderMonitorLab(mount, version) {
   </div>`;
 
   async function load() {
+    if (loading) return;
+    loading = true;
     try {
       const m = await api('admin/metrics');
       if (version !== renderVersion) return;
@@ -1504,19 +1818,31 @@ function renderMonitorLab(mount, version) {
           ['Id', 'User', 'DB', 'Cmd', 'Time(s)', 'State', 'SQL'],
           m.processlist.map(p => [p.id, p.user, p.db, p.command, p.time, p.state, p.info])
         )}</div>
-        <h3 style="margin-top:16px">Active InnoDB Transactions (${m.transactions.length})</h3>
+        <h3 class="mt-16">Active InnoDB Transactions (${m.transactions.length})</h3>
         <div class="surface">${tableHTML(
           ['Trx ID', 'State', 'Thread', 'Rows Locked', 'Query'],
           m.transactions.map(t => [t.trx_id, t.trx_state, t.trx_mysql_thread_id, t.trx_rows_locked, t.trx_query])
         )}</div>
-        <h3 style="margin-top:16px">Top Statement Digests (Performance Schema)</h3>
+        <h3 class="mt-16">Active InnoDB Locks (${(m.dataLocks || []).length})</h3>
+        <div class="surface">${tableHTML(
+          ['Thread', 'Table', 'Index', 'Type', 'Mode', 'Status', 'Row Key'],
+          (m.dataLocks || []).map(l => [l.thread_id, l.lock_table, l.lock_index, l.lock_type, l.lock_mode, l.lock_status, l.lock_data])
+        )}</div>
+        <h3 class="mt-16">Top Statement Digests (Performance Schema)</h3>
         <div class="surface">${tableHTML(
           ['Schema', 'Calls', 'Avg ms', 'Rows Scanned', 'Normalized Query'],
           m.digests.map(d => [d.SCHEMA_NAME, d.calls, d.avg_ms, d.rows_examined, d.digest])
         )}</div>
+        <h3 class="mt-16">Per-DB Storage Footprint (MB)</h3>
+        <div class="surface">${tableHTML(
+          ['Database', 'Tables', 'Approx Rows', 'Data MB', 'Index MB', 'Total MB'],
+          (m.dbGrowth || []).map(g => [g.db_name, g.table_count, g.approx_rows, g.data_mb, g.index_mb, g.total_mb])
+        )}</div>
       `;
     } catch (err) {
       if (version === renderVersion) $('#metricsOut', mount).innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    } finally {
+      loading = false;
     }
   }
 
@@ -1538,6 +1864,7 @@ function renderMonitorLab(mount, version) {
 
 function renderDualSessionLab(mount) {
   const clientId = getClientId();
+  const busySlots = { A: false, B: false };
   mount.innerHTML = `<div class="lab-panel">
     <div class="demo-actions">
       <button id="presetLockA1" type="button">Lock Wait 1: A locks Row 1</button>
@@ -1559,7 +1886,7 @@ function renderDualSessionLab(mount) {
         <div class="session-head"><strong>Session A (ops_lab)</strong><span id="badgeA" class="badge">Not connected</span></div>
         <textarea id="sqlA" class="sql-editor" spellcheck="false">START TRANSACTION; UPDATE accounts SET budget = budget - 5000 WHERE id = 1;</textarea>
         <div class="demo-actions">
-          <button id="runA" class="primary" type="button">Run in Session A</button>
+          <button id="runA" class="primary" type="button">Run in Session A (⌘↵)</button>
           <button data-q="A" data-sql="COMMIT;" type="button">COMMIT A</button>
           <button data-q="A" data-sql="ROLLBACK;" type="button">ROLLBACK A</button>
         </div>
@@ -1570,7 +1897,7 @@ function renderDualSessionLab(mount) {
         <div class="session-head"><strong>Session B (ops_lab)</strong><span id="badgeB" class="badge">Not connected</span></div>
         <textarea id="sqlB" class="sql-editor" spellcheck="false">UPDATE accounts SET budget = budget - 1000 WHERE id = 1;</textarea>
         <div class="demo-actions">
-          <button id="runB" class="primary" type="button">Run in Session B</button>
+          <button id="runB" class="primary" type="button">Run in Session B (⌘↵)</button>
           <button data-q="B" data-sql="COMMIT;" type="button">COMMIT B</button>
           <button data-q="B" data-sql="ROLLBACK;" type="button">ROLLBACK B</button>
         </div>
@@ -1578,27 +1905,36 @@ function renderDualSessionLab(mount) {
         <div id="outB" class="query-result"></div>
       </div>
     </div>
-    <div id="lockInspectOut" style="margin-top:16px"></div>
+    <div id="lockInspectOut" class="mt-16"></div>
   </div>`;
 
   async function execSlot(slot, sqlOverride) {
+    if (busySlots[slot]) {
+      notify(`Session ${slot} is already executing or waiting on a lock.`);
+      return;
+    }
     const sqlBox = $(`#sql${slot}`, mount);
     const badge = $(`#badge${slot}`, mount);
     const st = $(`#status${slot}`, mount);
     const out = $(`#out${slot}`, mount);
-    const sql = sqlOverride || sqlBox.value;
+    const sqlText = sqlOverride || sqlBox.value;
     if (sqlOverride) sqlBox.value = sqlOverride;
 
+    const parts = sqlText
+      .split(';')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!parts.length) {
+      st.textContent = 'Enter at least one SQL statement.';
+      return;
+    }
+
+    busySlots[slot] = true;
     badge.className = 'badge warn';
     badge.textContent = 'Running / Waiting…';
     st.textContent = `Executing in Session ${slot}…`;
     out.innerHTML = '';
 
-    // Allow running sequential semicolon-separated starter macros cleanly by splitting statements
-    const parts = sql
-      .split(';')
-      .map(s => s.trim())
-      .filter(Boolean);
     try {
       let lastRes = null;
       for (const stmt of parts) {
@@ -1617,11 +1953,25 @@ function renderDualSessionLab(mount) {
       badge.textContent = err.code ? `Error ${err.code}` : 'Error';
       st.textContent = `Error${err.code ? ` (${err.code})` : ''}`;
       out.innerHTML = `<p class="error result-message">${esc(err.message)}</p>`;
+    } finally {
+      busySlots[slot] = false;
     }
   }
 
   $('#runA', mount).onclick = () => execSlot('A');
   $('#runB', mount).onclick = () => execSlot('B');
+  $('#sqlA', mount).onkeydown = e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      execSlot('A');
+    }
+  };
+  $('#sqlB', mount).onkeydown = e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      execSlot('B');
+    }
+  };
   $$('[data-q]', mount).forEach(b => (b.onclick = () => execSlot(b.dataset.q, b.dataset.sql)));
 
   $('#presetLockA1', mount).onclick = () => execSlot('A', 'START TRANSACTION; UPDATE accounts SET budget = budget - 5000 WHERE id = 1;');
@@ -1644,7 +1994,7 @@ function renderDualSessionLab(mount) {
           ['Trx ID', 'State', 'Thread', 'Rows Locked', 'Query'],
           m.transactions.map(t => [t.trx_id, t.trx_state, t.trx_mysql_thread_id, t.trx_rows_locked, t.trx_query])
         )}</div>
-        <h3 style="margin-top:12px">Row / Table Locks (information_schema.INNODB_LOCKS)</h3>
+        <h3 class="mt-12">Row / Table Locks (information_schema.INNODB_LOCKS)</h3>
         <div class="surface">${tableHTML(
           ['Thread', 'Table', 'Index', 'Type', 'Mode', 'Status', 'Row Key'],
           m.dataLocks.map(l => [l.thread_id, l.lock_table, l.lock_index, l.lock_type, l.lock_mode, l.lock_status, l.lock_data])
@@ -1666,20 +2016,27 @@ function renderDualSessionLab(mount) {
   };
 
   $('#resetLocksBtn', mount).onclick = async () => {
-    const res = await api('reset-unit4-locks', { clientId });
-    $('#badgeA', mount).className = 'badge';
-    $('#badgeA', mount).textContent = 'Reset';
-    $('#badgeB', mount).className = 'badge';
-    $('#badgeB', mount).textContent = 'Reset';
-    $('#statusA', mount).textContent = 'Ready';
-    $('#statusB', mount).textContent = 'Ready';
-    $('#outA', mount).innerHTML = '';
-    $('#outB', mount).innerHTML = '';
-    $('#lockInspectOut', mount).innerHTML = `<p class="success">${esc(res.message)}</p>`;
+    try {
+      const res = await api('reset-unit4-locks', { clientId });
+      busySlots.A = false;
+      busySlots.B = false;
+      $('#badgeA', mount).className = 'badge';
+      $('#badgeA', mount).textContent = 'Reset';
+      $('#badgeB', mount).className = 'badge';
+      $('#badgeB', mount).textContent = 'Reset';
+      $('#statusA', mount).textContent = 'Ready';
+      $('#statusB', mount).textContent = 'Ready';
+      $('#outA', mount).innerHTML = '';
+      $('#outB', mount).innerHTML = '';
+      $('#lockInspectOut', mount).innerHTML = `<p class="success">${esc(res.message)}</p>`;
+    } catch (err) {
+      $('#lockInspectOut', mount).innerHTML = `<p class="error">${esc(err.message)}</p>`;
+    }
   };
 }
 
 function renderBackupLab(mount, version) {
+  let busy = false;
   mount.innerHTML = `<div class="lab-panel">
     <div class="demo-actions">
       <button id="bkFull" class="primary" type="button">1. Take Full Backup (mariadb-dump)</button>
@@ -1694,6 +2051,11 @@ function renderBackupLab(mount, version) {
     <pre id="bkPreview" class="log-viewer" hidden></pre>
   </div>`;
 
+  function setBusy(v) {
+    busy = v;
+    $$('button', mount).forEach(b => (b.disabled = v));
+  }
+
   async function refresh(previewText = null, cmdText = null) {
     try {
       const st = await api('admin/backup/status');
@@ -1707,7 +2069,7 @@ function renderBackupLab(mount, version) {
           Database <code>backup_lab.fee_ledger</code>:
           <span class="badge ${st.tableExists ? 'ok' : 'err'}">${st.tableExists ? `PRESENT (${st.rowCount} rows)` : 'MISSING / DROPPED!'}</span>
         </p>
-        <div class="lab-grid-2" style="margin-top:12px">
+        <div class="lab-grid-2 mt-12">
           <div class="surface">
             <div class="surface-label">Live fee_ledger rows</div>
             ${st.tableExists ? tableHTML(st.columns, st.rows) : '<p class="error empty">Table fee_ledger was dropped! Restore a backup below.</p>'}
@@ -1716,12 +2078,12 @@ function renderBackupLab(mount, version) {
             <div class="surface-label">Saved .sql Backups (${st.backups.length})</div>
             ${
               st.backups.length
-                ? `<div style="padding:12px">${st.backups
+                ? `<div class="pad-12">${st.backups
                     .map(
                       b =>
-                        `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span><code style="font-size:12px">${esc(
+                        `<div class="backup-row"><span><code>${esc(
                           b.name
-                        )}</code> <small class="note">(${b.sizeBytes} B)</small></span><button class="restore-btn primary" data-file="${esc(
+                        )}</code> <small class="note">(${fmtBytes(b.sizeBytes)})</small></span><button class="restore-btn primary" data-file="${esc(
                           b.name
                         )}" type="button">3. Restore</button></div>`
                     )
@@ -1733,12 +2095,16 @@ function renderBackupLab(mount, version) {
 
       $$('.restore-btn', mount).forEach(btn => {
         btn.onclick = async () => {
+          if (busy) return;
+          setBusy(true);
           try {
             const r = await api('admin/backup', { action: 'restore', filename: btn.dataset.file });
             notify(r.message);
-            refresh(null, r.command);
+            await refresh(null, r.command);
           } catch (err) {
             notify(err.message);
+          } finally {
+            setBusy(false);
           }
         };
       });
@@ -1752,84 +2118,58 @@ function renderBackupLab(mount, version) {
     }
   }
 
-  $('#bkFull', mount).onclick = async () => {
+  async function runAction(action) {
+    if (busy) return;
+    setBusy(true);
     try {
-      const r = await api('admin/backup', { action: 'dump' });
+      const r = await api('admin/backup', { action });
       notify(r.message);
-      refresh(`$ ${r.command}\n\n${r.preview}`, r.command);
+      await refresh(r.preview ? `$ ${r.command}\n\n${r.preview}` : null, r.command || null);
     } catch (err) {
       notify(err.message);
+    } finally {
+      setBusy(false);
     }
-  };
-  $('#bkSchema', mount).onclick = async () => {
-    try {
-      const r = await api('admin/backup', { action: 'dump-schema' });
-      notify(r.message);
-      refresh(`$ ${r.command}\n\n${r.preview}`, r.command);
-    } catch (err) {
-      notify(err.message);
-    }
-  };
-  $('#bkData', mount).onclick = async () => {
-    try {
-      const r = await api('admin/backup', { action: 'dump-data' });
-      notify(r.message);
-      refresh(`$ ${r.command}\n\n${r.preview}`, r.command);
-    } catch (err) {
-      notify(err.message);
-    }
-  };
-  $('#bkCorrupt', mount).onclick = async () => {
-    try {
-      const r = await api('admin/backup', { action: 'corrupt' });
-      notify(r.message);
-      refresh(null, r.command);
-    } catch (err) {
-      notify(err.message);
-    }
-  };
+  }
+
+  $('#bkFull', mount).onclick = () => runAction('dump');
+  $('#bkSchema', mount).onclick = () => runAction('dump-schema');
+  $('#bkData', mount).onclick = () => runAction('dump-data');
+  $('#bkCorrupt', mount).onclick = () => runAction('corrupt');
   $('#bkBinlog', mount).onclick = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       const r = await api('admin/logs?type=binlog&lines=50');
-      refresh(`# Active Binary Logs\n${r.content}`, 'mariadb-binlog --base64-output=DECODE-ROWS -v /var/log/mysql/mariadb-bin.*');
+      await refresh(`# Active Binary Logs\n${r.content}`, 'mariadb-binlog --base64-output=DECODE-ROWS -v /var/log/mysql/mariadb-bin.*');
     } catch (err) {
       notify(err.message);
+    } finally {
+      setBusy(false);
     }
   };
   $('#bkReset', mount).onclick = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       const r = await api('admin/backup', { action: 'reset' });
       notify(r.message);
       $('#bkPreview', mount).hidden = true;
       $('#bkCmdStrip', mount).hidden = true;
-      refresh();
+      await refresh();
     } catch (err) {
       notify(err.message);
+    } finally {
+      setBusy(false);
     }
   };
   refresh();
 }
 
-function openWorkspace(database = currentDatabase()) {
-  const unitId = currentUnit()?.id || 'u1';
-  const persona = unitId === 'u3' || unitId === 'u4' ? 'dba_lab' : 'console';
-  renderQuery(
-    $('#workspaceMount'),
-    {
-      database,
-      persona,
-      sql: database === 'classroom_practice' ? 'SHOW TABLES;' : 'SELECT * FROM students ORDER BY id;'
-    },
-    true,
-    allSteps[position]?.section
-  );
-  $('#workspaceDialog').showModal();
-}
-
 function presentation(value = !document.body.classList.contains('presenting')) {
   document.body.classList.toggle('presenting', value);
   $('#exitPresent').hidden = !value;
-  $('#presentButton').textContent = value ? 'Exit presentation' : 'Present';
+  $('#presentButton').hidden = value;
   if (value && document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
   }
@@ -1847,12 +2187,12 @@ function initSpeakerPopup() {
       return;
     }
     document.body.innerHTML = `
-      <div class="dialog-heading">
+      <div class="speaker-head">
         <div>
           <p class="eyebrow">Private Speaker View · ${esc(snap.unitLabel)} · Step ${snap.position + 1}/${snap.total}</p>
           <h1>${esc(snap.title)}</h1>
         </div>
-        <div class="footer-nav">
+        <div class="speaker-nav">
           <button id="spkPrev" type="button" ${snap.position <= 0 ? 'disabled' : ''}>← Prev</button>
           <button id="spkNext" class="primary" type="button" ${snap.position >= snap.total - 1 ? 'disabled' : ''}>Next →</button>
         </div>
@@ -1862,12 +2202,22 @@ function initSpeakerPopup() {
         <div class="speaker-notes-box">${esc(snap.notes)}</div>
         <p class="eyebrow">Class Discussion Prompt</p>
         <p>${esc(snap.question)}</p>
-        <p class="eyebrow" style="margin-top:16px">Model Answer</p>
+        <p class="eyebrow mt-16">Model Answer</p>
         <div class="answer">${formatAnswerHTML(snap.answer)}</div>
       </div>`;
     $('#spkPrev').onclick = () => channel?.postMessage({ type: 'nav', delta: -1 });
     $('#spkNext').onclick = () => channel?.postMessage({ type: 'nav', delta: 1 });
   }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      channel?.postMessage({ type: 'nav', delta: 1 });
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      channel?.postMessage({ type: 'nav', delta: -1 });
+    }
+  });
 
   try {
     const initial = JSON.parse(localStorage.getItem('dbms-classroom-speaker-snapshot') || 'null');
@@ -1875,6 +2225,8 @@ function initSpeakerPopup() {
   } catch {
     renderSnapshot(null);
   }
+
+  channel?.postMessage({ type: 'hello' });
 
   if (channel) {
     channel.onmessage = e => {
@@ -1908,9 +2260,9 @@ const CHEAT_SHEETS = {
       ['Execution Order', 'FROM / JOIN (+ ON) → WHERE → GROUP BY → HAVING → SELECT / DISTINCT → ORDER BY → LIMIT'],
       ['DDL / DML / DCL / TCL', 'DDL: CREATE/ALTER/DROP/TRUNCATE (auto-commit) | DML: INSERT/UPDATE/DELETE/SELECT | DCL: GRANT/REVOKE | TCL: COMMIT/ROLLBACK'],
       ['5 Constraints', 'PRIMARY KEY, FOREIGN KEY (ON DELETE/UPDATE), UNIQUE, NOT NULL, CHECK (expr)'],
-      ['Joins & Set Ops', 'INNER, LEFT, RIGHT, FULL OUTER (LEFT UNION RIGHT), CROSS, SELF | UNION, UNION ALL, INTERSECT, EXCEPT'],
+      ['Joins & Set Ops', 'INNER, LEFT, RIGHT, FULL OUTER (LEFT UNION RIGHT), CROSS, SELF, NATURAL | UNION, UNION ALL, INTERSECT, EXCEPT'],
       ['Views & Types', 'Simple (single table, updatable) vs Complex (JOIN/GROUP BY, read-only); WITH CHECK OPTION rejects out-of-filter writes (1369)'],
-      ['Built-in Functions', 'Numeric: ABS, ROUND, TRUNCATE, CEIL, FLOOR, MOD, SQRT | String: UPPER, LOWER, CHAR_LENGTH, CONCAT, SUBSTRING, TRIM | Date: DATEDIFF, DATE_ADD, DATE_FORMAT']
+      ['Built-in Functions', 'Numeric: ABS, ROUND, TRUNCATE, CEIL, FLOOR, MOD, SQRT | String: UPPER, LOWER, CHAR_LENGTH, CONCAT, SUBSTRING, TRIM | Date: DATEDIFF, DATE_ADD, DATE_FORMAT | Null: COALESCE, NULLIF']
     ])}</div>`,
   u3: `<h3>Unit 3 · MariaDB Concepts, Security &amp; Auth</h3>
     <div class="surface">${tableHTML(['Topic', 'Key Commands & Concepts'], [
@@ -1929,10 +2281,50 @@ const CHEAT_SHEETS = {
     ])}</div>`
 };
 
-function openSearchModal() {
-  const dlg = $('#searchDialog');
-  const input = $('#searchInput');
-  const results = $('#searchResults');
+function closeOtherDialogs(exceptDlg = null) {
+  $$('dialog[open]').forEach(d => {
+    if (d !== exceptDlg) d.close();
+  });
+}
+
+function openCommandPalette() {
+  const dlg = $('#commandDialog');
+  if (dlg.open) {
+    dlg.close();
+    return;
+  }
+  closeOtherDialogs(dlg);
+  const input = $('#commandInput');
+  const results = $('#commandResults');
+
+  applyAdminerUrl();
+  $('#cmdThemeBtn').textContent = theme === 'dark' ? 'Switch to Paper Theme' : 'Switch to Dark Theme';
+  $('#cmdModeBtn').textContent = mode === 'student' ? 'Switch to Instructor Mode' : 'Switch to Student Mode';
+  $('#cmdStudioBtn').textContent = document.body.classList.contains('studio-open') ? 'Hide SQL Studio' : 'Open SQL Studio';
+  const unitId = currentUnit()?.id || 'u1';
+  const resetMap = {
+    u1: ['practice', 'Reset lab_students (Unit 1)'],
+    u2: ['unit2', 'Reset Unit 2 sql_lab'],
+    u3: ['unit3', 'Reset Unit 3 security_lab'],
+    u4: ['unit4', 'Reset Unit 4 labs']
+  };
+  const [resetKind, resetLabel] = resetMap[unitId] || resetMap.u1;
+  $('#cmdResetBtn').textContent = resetLabel;
+
+  $('#adminerLink').onclick = () => dlg.close();
+  $('#cmdStudioBtn').onclick = () => { dlg.close(); toggleStudio(); };
+  $('#cmdDbeaverBtn').onclick = () => { dlg.close(); $('#dbeaverDialog').showModal(); };
+  $('#cmdCheatBtn').onclick = () => { dlg.close(); openCheatSheetModal(unitId); };
+  $('#cmdThemeBtn').onclick = () => { dlg.close(); applyTheme(theme === 'dark' ? 'light' : 'dark'); };
+  $('#cmdModeBtn').onclick = () => { dlg.close(); saveMode(mode === 'student' ? 'instructor' : 'student'); };
+  $('#cmdNotesBtn').onclick = () => {
+    dlg.close();
+    broadcastSpeakerState();
+    window.open(`${location.pathname}?presenter=1`, 'dbms-speaker-notes', 'width=620,height=720');
+  };
+  $('#cmdPresentBtn').onclick = () => { dlg.close(); presentation(true); };
+  $('#cmdResetBtn').onclick = () => { dlg.close(); requestReset(resetKind, null, null); };
+
   function renderList(term) {
     const q = term.trim().toLowerCase();
     const matches = allSteps
@@ -1952,7 +2344,7 @@ function openSearchModal() {
           .toLowerCase();
         return hay.includes(q);
       })
-      .slice(0, 24);
+      .slice(0, 26);
 
     if (!matches.length) {
       results.innerHTML = '<p class="empty">No matching lesson steps found.</p>';
@@ -1961,9 +2353,10 @@ function openSearchModal() {
     results.innerHTML = matches
       .map(({ section, step, idx }) => {
         const uNum = COURSE.units.findIndex(u => u.id === section.unit) + 1;
-        return `<button class="search-item" data-jump="${idx}" type="button"><strong>Unit ${uNum} · ${esc(section.number)} ${esc(
-          step.title
-        )}</strong><small>${esc(section.title)} · ${esc(step.type)}</small></button>`;
+        return `<button class="search-item" data-jump="${idx}" type="button">
+          <div><strong>Unit ${uNum} · ${esc(section.number)} ${esc(step.title)}</strong><small>${esc(section.title)}</small></div>
+          <span class="step-tag">${stepTypeBadge(step)}</span>
+        </button>`;
       })
       .join('');
     $$('.search-item', results).forEach(btn => {
@@ -1973,6 +2366,7 @@ function openSearchModal() {
       };
     });
   }
+
   input.oninput = () => renderList(input.value);
   input.onkeydown = e => {
     if (e.key === 'Enter') {
@@ -1986,10 +2380,12 @@ function openSearchModal() {
   renderList(input.value);
   dlg.showModal();
   input.focus();
+  input.select();
 }
 
 function openCheatSheetModal(unitId) {
   const dlg = $('#cheatsheetDialog');
+  closeOtherDialogs(dlg);
   const body = $('#cheatsheetBody');
   function selectTab(id) {
     $$('[data-cheat]', dlg).forEach(b => b.classList.toggle('selected', b.dataset.cheat === id));
@@ -2004,9 +2400,7 @@ if (isSpeakerPopup) {
   initSpeakerPopup();
 } else {
   applyTheme(theme);
-  try {
-    if (localStorage.getItem(STORAGE_SIDEBAR) === '1') applySidebarState(true);
-  } catch {}
+  applyAdminerUrl(8081);
 
   document.body.classList.toggle('student-mode', mode === 'student');
   $('#modeInstructor').classList.toggle('active', mode === 'instructor');
@@ -2014,11 +2408,19 @@ if (isSpeakerPopup) {
   $('#modeInstructor').onclick = () => saveMode('instructor');
   $('#modeStudent').onclick = () => saveMode('student');
 
-  $('#sidebarToggle').onclick = () => applySidebarState(!document.body.classList.contains('sidebar-collapsed'));
+  $('#drawerToggle').onclick = () => ($('#curriculumDrawer').hidden ? openDrawer() : closeDrawer());
+  $('#dockTopicBtn').onclick = () => ($('#curriculumDrawer').hidden ? openDrawer() : closeDrawer());
+  $('#closeDrawerBtn').onclick = closeDrawer;
+  $('#drawerBackdrop').onclick = closeDrawer;
+
   $('#themeButton').onclick = () => applyTheme(theme === 'dark' ? 'light' : 'dark');
-  $('#searchButton').onclick = openSearchModal;
-  $('#cheatsheetButton').onclick = () => openCheatSheetModal(currentUnit()?.id);
-  $('#dbeaverButton').onclick = () => $('#dbeaverDialog').showModal();
+  $('#commandButton').onclick = openCommandPalette;
+  $('#dockPaletteBtn').onclick = openCommandPalette;
+  $('#dbeaverButton').onclick = () => {
+    closeOtherDialogs($('#dbeaverDialog'));
+    $('#dbeaverDialog').showModal();
+  };
+  $('#studioToggleBtn').onclick = toggleStudio;
 
   $$('.copy-btn').forEach(btn => {
     btn.onclick = async () => {
@@ -2032,26 +2434,16 @@ if (isSpeakerPopup) {
     };
   });
 
-  $('#courseButton').onclick = () => $('#courseDialog').showModal();
-  $('#unitList').innerHTML = COURSE.units
-    .map(
-      (unit, i) =>
-        `<button class="unit-card" data-unit="${unit.id}" type="button"><span class="unit-number">0${i + 1}</span><span><strong>${esc(
-          unit.title
-        )}</strong><small>${unit.hours} teaching hours · ${sections.filter(s => s.unit === unit.id).length} sections available</small></span><span>Open →</span></button>`
-    )
-    .join('');
-  $$('[data-unit]').forEach(b => {
-    b.onclick = () => {
-      $('#courseDialog').close();
-      go(allSteps.findIndex(item => item.section.unit === b.dataset.unit));
-    };
+  $$('dialog').forEach(dlg => {
+    dlg.addEventListener('click', e => {
+      if (e.target === dlg) dlg.close();
+    });
   });
 
-  $('#workspaceButton').onclick = () => openWorkspace();
   $('#presentButton').onclick = () => presentation();
   $('#exitPresent').onclick = () => presentation(false);
   $('#notesButton').onclick = () => {
+    closeOtherDialogs($('#notesDialog'));
     $('#notesDialog').showModal();
     $('#notesButton').setAttribute('aria-expanded', 'true');
   };
@@ -2092,6 +2484,8 @@ if (isSpeakerPopup) {
     channel.onmessage = e => {
       if (e.data?.type === 'nav') {
         go(position + Number(e.data.delta || 0));
+      } else if (e.data?.type === 'hello') {
+        broadcastSpeakerState();
       }
     };
   }
@@ -2099,7 +2493,7 @@ if (isSpeakerPopup) {
   document.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      openSearchModal();
+      openCommandPalette();
       return;
     }
     if (
@@ -2113,7 +2507,13 @@ if (isSpeakerPopup) {
     }
     if (e.key === '/') {
       e.preventDefault();
-      openSearchModal();
+      openCommandPalette();
+    } else if (e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      toggleStudio();
+    } else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      $('#curriculumDrawer').hidden ? openDrawer() : closeDrawer();
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       go(position + 1);
@@ -2121,7 +2521,11 @@ if (isSpeakerPopup) {
       e.preventDefault();
       go(position - 1);
     } else if (e.key === 'Escape') {
-      presentation(false);
+      if (!$('#curriculumDrawer').hidden) {
+        closeDrawer();
+      } else {
+        presentation(false);
+      }
     }
   });
 
@@ -2129,7 +2533,7 @@ if (isSpeakerPopup) {
     if (!document.fullscreenElement) {
       document.body.classList.remove('presenting');
       $('#exitPresent').hidden = true;
-      $('#presentButton').textContent = 'Present';
+      $('#presentButton').hidden = false;
     }
   });
 
@@ -2137,11 +2541,6 @@ if (isSpeakerPopup) {
     const index = locate(location.hash);
     if (index >= 0) go(index, false);
   });
-
-  const adminerInit = $('#adminerLink');
-  if (adminerInit) {
-    adminerInit.href = `${location.protocol}//${location.hostname}:8081`;
-  }
 
   updateProgressSummary();
   go(readPosition());

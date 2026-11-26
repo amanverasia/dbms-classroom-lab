@@ -18,6 +18,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 24
+      start_period: 15s
 
   adminer:
     image: adminer:4
@@ -43,8 +44,6 @@ services:
       PORT: "8080"
       DB_HOST: mariadb
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-classroom-root}
-      CONSOLE_PASSWORD: ${CONSOLE_PASSWORD:-console-local-demo}
-      DBA_PASSWORD: ${DBA_PASSWORD:-dba-local-demo}
       ADMINER_PORT: ${ADMINER_PORT:-8081}
       DB_PORT: ${DB_PORT:-3307}
     volumes:
@@ -59,6 +58,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 15s
 
   teacher-console:
     image: nginx:alpine
@@ -71,6 +71,11 @@ services:
     volumes:
       - ./web:/usr/share/nginx/html:ro
       - ./server/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   classroom_db:

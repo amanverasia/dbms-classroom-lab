@@ -32,7 +32,7 @@ export async function prepareUnit2(conn, reset = false) {
     if (!reset && Number(existingRows?.[0]?.cnt) > 0) {
       throw new HttpError(
         409,
-        'An incomplete or existing SQL dataset was found. Use Reset Unit 2 data to rebuild the named lesson tables.'
+        'An incomplete or existing SQL dataset was found. Use Reset Unit 2 to rebuild the named lesson tables.'
       );
     }
     await conn.query(loadSql('unit2-fixture.sql'));
@@ -73,13 +73,20 @@ export async function prepareCourseRosterView(conn) {
   await prepareUnit2(conn, false);
   await conn.query('USE sql_lab');
   await conn.query(`
-    CREATE OR REPLACE SQL SECURITY INVOKER VIEW course_roster AS
+    CREATE OR REPLACE DEFINER = 'classroom_console'@'%' SQL SECURITY INVOKER VIEW course_roster AS
     SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name, e.score
     FROM students s
     JOIN enrollments e ON e.student_id = s.id
     JOIN courses c ON c.id = e.course_id
   `);
-  return 'course_roster view is ready in sql_lab.';
+  await conn.query(`
+    CREATE OR REPLACE ALGORITHM=TEMPTABLE DEFINER = 'classroom_console'@'%' SQL SECURITY INVOKER VIEW v_course_summary AS
+    SELECT c.id AS course_id, c.course_name, COUNT(e.student_id) AS enrolled_count, ROUND(AVG(e.score), 1) AS avg_score
+    FROM courses c
+    LEFT JOIN enrollments e ON e.course_id = c.id
+    GROUP BY c.id, c.course_name
+  `);
+  return 'course_roster and v_course_summary views are ready in sql_lab.';
 }
 
 export async function preparePractice(conn, seed = false) {
@@ -120,45 +127,45 @@ export async function prepareUnit3(conn, reset = false) {
   await conn.query('CREATE DATABASE IF NOT EXISTS security_lab');
   await conn.query('USE security_lab');
   const [marker] = await conn.query(
-    "SELECT COUNT(*) AS cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA='security_lab' AND TABLE_NAME='lesson_state'"
+    "SELECT COUNT(*) AS cnt FROM information_schema.TABLES WHERE TABLE_SCHEMA='security_lab' AND TABLE_NAME='portal_users'"
   );
   if (reset || Number(marker?.[0]?.cnt) === 0) {
     await conn.query(loadSql('unit3-fixture.sql'));
   }
   if (reset) {
-    // Clean up lab-created demo objects, accounts, roles, and password validation plugin
     await conn.query('DROP DATABASE IF EXISTS demo_scratch');
-    for (const userHost of [
-      "'intern'@'%'",
-      "'analyst_u3'@'%'",
-      "'ed_user'@'%'",
-      "'locked_user'@'%'",
-      "'report_dev'@'%'",
-      "'app_u3'@'%'"
-    ]) {
+    for (const userHost of ["'intern'@'%'", "'analyst_u3'@'%'", "'ed_user'@'%'", "'locked_user'@'%'"]) {
       await conn.query(`DROP USER IF EXISTS ${userHost}`).catch(() => {});
     }
     await conn.query("DROP ROLE IF EXISTS 'role_reader'").catch(() => {});
     await conn.query("DROP ROLE IF EXISTS 'role_analyst'").catch(() => {});
     await conn.query('UNINSTALL PLUGIN IF EXISTS simple_password_check').catch(() => {});
-    // Restore canonical demo permissions
+
+    // Restore canonical demo accounts, least-privilege grants, and lock states
     await conn.query("CREATE USER IF NOT EXISTS 'web_app'@'%' IDENTIFIED BY 'webapp-demo-password'");
-    await conn.query("GRANT SELECT, INSERT, UPDATE ON college_demo.* TO 'web_app'@'%'");
+    await conn.query("ALTER USER 'web_app'@'%' IDENTIFIED BY 'webapp-demo-password' ACCOUNT UNLOCK");
+    await conn.query("REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'web_app'@'%'");
+    await conn.query("GRANT SELECT ON college_demo.* TO 'web_app'@'%'");
     await conn.query("GRANT SELECT, INSERT, UPDATE ON security_lab.* TO 'web_app'@'%'");
+
     await conn.query("CREATE USER IF NOT EXISTS 'reporting'@'%' IDENTIFIED BY 'reporting-demo-password'");
+    await conn.query("ALTER USER 'reporting'@'%' IDENTIFIED BY 'reporting-demo-password' ACCOUNT UNLOCK");
+    await conn.query("REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'reporting'@'%'");
     await conn.query("GRANT SELECT ON college_demo.* TO 'reporting'@'%'");
     await conn.query("GRANT SELECT ON sql_lab.* TO 'reporting'@'%'");
     await conn.query("GRANT SELECT ON security_lab.* TO 'reporting'@'%'");
+
     await conn.query("CREATE USER IF NOT EXISTS 'tls_user'@'%' IDENTIFIED BY 'tls-local-demo' REQUIRE SSL");
+    await conn.query("ALTER USER 'tls_user'@'%' IDENTIFIED BY 'tls-local-demo' REQUIRE SSL ACCOUNT UNLOCK");
+    await conn.query("REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'tls_user'@'%'");
     await conn.query("GRANT SELECT ON college_demo.* TO 'tls_user'@'%'");
     await conn.query("GRANT SELECT ON security_lab.* TO 'tls_user'@'%'");
-    await conn.query('FLUSH PRIVILEGES');
     return 'Unit 3 security_lab tables, demo accounts, and roles restored to baseline.';
   }
   return 'Unit 3 security_lab is ready.';
 }
 
-export async function seedPerfLab(conn, reset = false) {
+async function seedPerfLab(conn, reset = false) {
   await conn.query('CREATE DATABASE IF NOT EXISTS perf_lab');
   await conn.query('USE perf_lab');
 
@@ -200,18 +207,6 @@ export async function seedPerfLab(conn, reset = false) {
     return 'perf_lab.activity_events reset to 25,000 unindexed baseline rows.';
   }
 
-  if (reset) {
-    // Also drop any student-added secondary indexes
-    const [idxRows] = await conn.query(`
-      SELECT DISTINCT INDEX_NAME
-      FROM information_schema.STATISTICS
-      WHERE TABLE_SCHEMA='perf_lab' AND TABLE_NAME='activity_events' AND INDEX_NAME <> 'PRIMARY'
-    `);
-    for (const row of idxRows) {
-      await conn.query(`DROP INDEX \`${row.INDEX_NAME}\` ON perf_lab.activity_events`);
-    }
-    await conn.query('ANALYZE TABLE perf_lab.activity_events');
-  }
   return 'perf_lab.activity_events is ready (25,000 rows).';
 }
 
@@ -247,6 +242,7 @@ export async function prepareUnit4(conn, reset = false) {
     await conn.query("SET GLOBAL slow_query_log = 'ON'").catch(() => {});
     await conn.query('SET GLOBAL long_query_time = 0.5').catch(() => {});
     await conn.query("SET GLOBAL server_audit_logging = 'OFF'").catch(() => {});
+    await conn.query("SET GLOBAL server_audit_events = 'CONNECT,QUERY,TABLE'").catch(() => {});
     return 'Unit 4 perf_lab, ops_lab, backup_lab, and logging flags restored to baseline.';
   }
   return 'Unit 4 monitoring, locking, and backup labs are ready.';
@@ -257,6 +253,7 @@ export async function resetLocksLab(clientId) {
   await closeClientSessions(clientId, 'B');
   const conn = await connectAdmin('ops_lab', true);
   try {
+    await conn.query('SET SESSION lock_wait_timeout = 5');
     await conn.query(`
       CREATE TABLE IF NOT EXISTS ops_lab.accounts (
         id INT PRIMARY KEY,

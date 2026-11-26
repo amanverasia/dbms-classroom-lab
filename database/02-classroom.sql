@@ -2,5 +2,5 @@
 CREATE DATABASE IF NOT EXISTS classroom_practice;
 CREATE USER IF NOT EXISTS 'classroom_console'@'%' IDENTIFIED BY 'console-local-demo';
 GRANT SELECT ON college_demo.* TO 'classroom_console'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES, CREATE VIEW, SHOW VIEW
   ON classroom_practice.* TO 'classroom_console'@'%';

@@ -1,10 +1,10 @@
-import { connectAdmin, HttpError, runSingleQuery, sanitizeValue, validateDatabaseForPersona } from './db.js';
+import { connectAdmin, HttpError, runSingleQuery, sanitizeValue, validateDatabase } from './db.js';
 
-function normalizeRow(row, floatTolerance = true) {
+function normalizeRow(row) {
   return row.map(v => {
     if (v === null || v === undefined) return null;
     const s = String(sanitizeValue(v)).trim();
-    if (floatTolerance && /^-?\d+\.\d+$/.test(s)) {
+    if (/^-?\d+\.\d+$/.test(s)) {
       return Number(s).toFixed(2);
     }
     return s;
@@ -15,19 +15,18 @@ function serializeRows(rows) {
   return rows.map(r => JSON.stringify(normalizeRow(r)));
 }
 
+function stripLeadingComments(sql) {
+  return sql.replace(/^(?:\s*(?:--[^\n]*(?:\n|$)|#[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/))+/g, '').trim();
+}
+
 export async function checkStudentAnswer({ sql, database, checkSpec }) {
-  const cleanSql = String(sql || '').trim();
-  if (!cleanSql) {
-    throw new HttpError(400, 'Write an SQL statement before clicking Check my answer.');
-  }
   if (!checkSpec || typeof checkSpec !== 'object') {
     throw new HttpError(400, 'This step does not have an auto-check specification.');
   }
 
-  const targetDb = validateDatabaseForPersona(database || checkSpec.database || 'sql_lab', checkSpec.persona || 'console');
+  const targetDb = validateDatabase(checkSpec.database || database || 'sql_lab');
 
   if (checkSpec.kind === 'table-check') {
-    // Run the student's statement first if it's a SELECT, otherwise inspect existing table state!
     const tableName = String(checkSpec.table || '').trim();
     if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
       throw new HttpError(400, 'Invalid target table check configuration.');
@@ -80,7 +79,17 @@ export async function checkStudentAnswer({ sql, database, checkSpec }) {
   }
 
   if (checkSpec.kind === 'query-match') {
-    const firstWord = cleanSql.replace(/^\/\*[\s\S]*?\*\/\s*/g, '').trim().split(/\s+/)[0]?.toUpperCase();
+    const cleanSql = String(sql || '').trim();
+    const expectedSql = String(checkSpec.expectedSql || '').trim();
+    if (!cleanSql) {
+      throw new HttpError(400, 'Write an SQL statement before clicking Check my answer.');
+    }
+    if (!expectedSql) {
+      throw new HttpError(500, 'Missing reference query on step checkSpec.');
+    }
+
+    const stripped = stripLeadingComments(cleanSql);
+    const firstWord = stripped.split(/\s+/)[0]?.toUpperCase();
     if (!['SELECT', 'WITH'].includes(firstWord)) {
       return {
         passed: false,
@@ -94,7 +103,7 @@ export async function checkStudentAnswer({ sql, database, checkSpec }) {
       persona: checkSpec.persona || 'console'
     });
     const expectedRes = await runSingleQuery({
-      sql: checkSpec.expectedSql,
+      sql: expectedSql,
       database: targetDb,
       persona: checkSpec.persona || 'console'
     });
@@ -116,9 +125,14 @@ export async function checkStudentAnswer({ sql, database, checkSpec }) {
 
     const actualRows = serializeRows(studentRes.rows);
     const targetRows = serializeRows(expectedRes.rows);
-    const matches = checkSpec.orderMatters
-      ? actualRows.every((r, i) => r === targetRows[i])
-      : [...actualRows].sort().every((r, i) => r === [...targetRows].sort()[i]);
+    let matches;
+    if (checkSpec.orderMatters) {
+      matches = actualRows.every((r, i) => r === targetRows[i]);
+    } else {
+      const sortedActual = [...actualRows].sort();
+      const sortedTarget = [...targetRows].sort();
+      matches = sortedActual.every((r, i) => r === sortedTarget[i]);
+    }
 
     if (!matches) {
       return {

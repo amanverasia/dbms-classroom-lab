@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import vm from 'node:vm';
 
 if (process.env.RUN_FULL_REHEARSAL !== '1') {
@@ -9,8 +11,20 @@ if (process.env.RUN_FULL_REHEARSAL !== '1') {
 const API_BASE = 'http://127.0.0.1:8080/api';
 const WEB_BASE = 'http://teacher-console';
 
-async function api(path, body = null) {
-  const res = await fetch(`${API_BASE}/${path}`, {
+async function rawRequest(route, { method = 'POST', headers = {}, body = undefined } = {}) {
+  const res = await fetch(`${API_BASE}/${route}`, { method, headers, body });
+  const text = await res.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = { raw: text };
+  }
+  return [res.status, json];
+}
+
+async function api(route, body = null) {
+  const res = await fetch(`${API_BASE}/${route}`, {
     method: body ? 'POST' : 'GET',
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined
@@ -36,8 +50,35 @@ function fail([status, data], expectedCode, label) {
   return data;
 }
 
-// 1. Verify Web Assets & Complete 4-Unit Curriculum Registry
-console.log('1. Verifying curriculum registry, diagrams, and DBeaver worksheets...');
+// 1. Verify Web Assets, DOM Shell, Nginx Proxy & Complete 4-Unit Curriculum Registry
+console.log('1. Verifying web shell, Nginx proxy, curriculum registry, diagrams, and DBeaver worksheets...');
+const shellTexts = {};
+for (const shellAsset of ['index.html', 'styles.css', 'app.js']) {
+  const res = await fetch(`${WEB_BASE}/${shellAsset}`);
+  assert.equal(res.status, 200, `Failed fetching ${WEB_BASE}/${shellAsset}`);
+  const text = await res.text();
+  assert.ok(!text.includes('localhost:8081'), `Hardcoded localhost:8081 found in ${shellAsset}`);
+  assert.equal(/https?:\/\//i.test(text), false, `Unexpected external URL found in ${shellAsset}`);
+  shellTexts[shellAsset] = text;
+}
+
+const expectedShellIds = [
+  'drawerToggle', 'sectionLabel', 'stepCount', 'health', 'modeInstructor', 'modeStudent',
+  'dbeaverButton', 'themeButton', 'commandButton', 'curriculumDrawer', 'drawerUnitTabs',
+  'sectionNav', 'stepRail', 'lesson', 'discussion', 'studioPane', 'studioMount',
+  'prevButton', 'nextButton', 'studioToggleBtn', 'notesButton', 'presentButton',
+  'exitPresent', 'commandDialog', 'commandInput', 'adminerLink', 'notesDialog',
+  'dbeaverDialog', 'cheatsheetDialog', 'resetDialog'
+];
+for (const id of expectedShellIds) {
+  assert.ok(new RegExp(`id="${id}"`).test(shellTexts['index.html']), `Missing static shell id="${id}" in index.html`);
+}
+
+const proxyHealthRes = await fetch(`${WEB_BASE}/api/health`);
+assert.equal(proxyHealthRes.status, 200, 'Nginx /api/health proxy check failed');
+const proxyHealth = await proxyHealthRes.json();
+assert.equal(proxyHealth.ok, true, 'Nginx /api/health proxy returned ok !== true');
+
 const assetNames = ['diagrams.js', 'lessons-unit1.js', 'lessons-unit2.js', 'lessons-unit3.js', 'lessons-unit4.js'];
 const sandbox = { window: {} };
 sandbox.window = sandbox;
@@ -88,19 +129,74 @@ for (const sec of COURSE.sections) {
 }
 console.log(`PASS: ${COURSE.sections.length} sections, ${allSteps.length} steps, 100% unique tailored teacher notes.`);
 
-// 2. Health, Security & Edge Behavior Checks
-console.log('2. Verifying API health, security isolation, and query behavior...');
+// 2. Health, API Guards, 10-DB Persona Isolation & Query Behavior Checks
+console.log('2. Verifying API health, contract guards, 10-DB persona isolation, and query behavior...');
 const health = ok(await api('health'), 'GET /api/health');
 assert.equal(health.ok, true);
+assert.ok(Number(health.adminerPort) > 0, 'Expected adminerPort in /api/health');
 assert.ok(Number(health.dbPort) > 0, 'Expected dbPort in /api/health');
 assert.equal(health.ssl, true, 'TLS must be enabled on MariaDB');
 assert.equal(health.performanceSchema, true, 'performance_schema must be ON');
 assert.equal(health.auditPlugin, true, 'server_audit plugin must be loaded');
 
+// API security & contract guards
+const [s415] = await rawRequest('query', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: '{"sql":"SELECT 1"}' });
+assert.equal(s415, 415, 'Expected 415 for non-JSON Content-Type');
+
+const [s403] = await rawRequest('query', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site' },
+  body: JSON.stringify({ sql: 'SELECT 1' })
+});
+assert.equal(s403, 403, 'Expected 403 for Sec-Fetch-Site: cross-site');
+
+for (const badBody of ['null', '[]']) {
+  const [s400] = await rawRequest('query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: badBody
+  });
+  assert.equal(s400, 400, `Expected 400 for non-object JSON body ${badBody}`);
+}
+
+const [s405] = await rawRequest('query', { method: 'GET' });
+assert.equal(s405, 405, 'Expected 405 for GET /api/query');
+
+const [s404] = await api('unknown-route', { ping: true });
+assert.equal(s404, 404, 'Expected 404 for unknown route');
+
+const [badBkStatus] = await api('admin/backup', { action: 'dump', filename: '../evil.sql' });
+assert.equal(badBkStatus, 400, 'Expected 400 for invalid backup filename');
+
 const caRes = await fetch(`${API_BASE}/certs/ca.pem`);
 assert.equal(caRes.status, 200, 'Expected /api/certs/ca.pem download to succeed');
 const caText = await caRes.text();
 assert.ok(caText.includes('-----BEGIN CERTIFICATE-----'), 'Expected valid PEM CA certificate');
+
+// 10-DB persona isolation matrix
+ok(await sql('SELECT COUNT(*) FROM students', 'college_demo', { persona: 'console' }), 'console reads college_demo');
+ok(await sql('SELECT 1 AS ok', 'sql_lab', { persona: 'console' }), 'console queries sql_lab');
+const consoleTemp = `verify_c_${Date.now()}`;
+ok(await sql(`CREATE TABLE ${consoleTemp} (id INT PRIMARY KEY)`, 'classroom_practice', { persona: 'console' }), 'console creates temp table');
+ok(await sql(`DROP TABLE ${consoleTemp}`, 'classroom_practice', { persona: 'console' }), 'console drops temp table');
+
+for (const restrictedDb of ['security_lab', 'perf_lab', 'mysql']) {
+  fail(await sql('SELECT 1', restrictedDb, { persona: 'console' }), 1044, `console denied database access on ${restrictedDb}`);
+}
+
+for (const dbName of [
+  'college_demo', 'classroom_practice', 'sql_lab', 'security_lab',
+  'perf_lab', 'ops_lab', 'backup_lab', 'information_schema',
+  'performance_schema', 'mysql'
+]) {
+  ok(await sql('SELECT 1 AS ok', dbName, { persona: 'dba_lab' }), `dba_lab SELECT 1 on ${dbName}`);
+}
+
+fail(
+  await sql("INSERT INTO college_demo.students (name, city, age) VALUES ('X', 'Pune', 20)", 'college_demo', { persona: 'web_app' }),
+  1142,
+  'web_app denied INSERT on college_demo.students'
+);
 
 const dupCols = ok(await sql('SELECT 1 AS same, 2 AS same', 'classroom_practice'), 'Duplicate column aliases');
 assert.deepEqual(dupCols.columns, ['same', 'same']);
@@ -116,7 +212,7 @@ fail(await sql('SELECT User FROM mysql.user', 'classroom_practice'), 1142, 'Reje
 
 const schemaRes = ok(await api('schema?database=college_demo'), 'Schema reference endpoint');
 assert.ok(schemaRes.objects.some(o => o.name === 'students'));
-console.log('PASS: Health, security isolation, duplicate aliases, and schema reference verified.');
+console.log('PASS: Health, API guards, 10-DB persona isolation, duplicate aliases, and schema reference verified.');
 
 // 3. Unit 1 Rehearsal & Auto-Checker
 console.log('3. Rehearsing Unit 1 queries & challenge checker...');
@@ -149,8 +245,11 @@ const guardCheckU1 = ok(await sql(`SELECT id FROM ${u1Guard}`, 'classroom_practi
 assert.equal(Number(guardCheckU1.rows[0][0]), 99);
 ok(await sql(`DROP TABLE ${u1Guard}`, 'classroom_practice'), 'Cleanup U1 guard');
 
-// Test U1 table-check auto-checker using a temporary test table check
+// Test U1 table-check auto-checker before and after creating lab_courses
 const u1ChallengeCheck = allSteps.find(x => x.step.id === 'lab-challenge').step.check;
+ok(await sql('DROP TABLE IF EXISTS lab_courses', 'classroom_practice'), 'Ensure clean lab_courses before check');
+const chkU1Missing = ok(await api('check-answer', { sql: '', database: 'classroom_practice', checkSpec: u1ChallengeCheck }), 'U1 table-check fails before table exists');
+assert.equal(chkU1Missing.passed, false);
 ok(
   await sql(
     'CREATE TABLE IF NOT EXISTS lab_courses (id INT PRIMARY KEY AUTO_INCREMENT, course_name VARCHAR(100) NOT NULL, duration_months INT NOT NULL CHECK (duration_months > 0))',
@@ -162,7 +261,7 @@ ok(
   await sql("INSERT INTO lab_courses (course_name, duration_months) VALUES ('A',1),('B',2),('C',3)", 'classroom_practice'),
   'Seed lab_courses for checker test'
 );
-const chkU1 = ok(await api('check-answer', { sql: 'SELECT * FROM lab_courses;', database: 'classroom_practice', checkSpec: u1ChallengeCheck }), 'Run U1 check-answer');
+const chkU1 = ok(await api('check-answer', { sql: '', database: 'classroom_practice', checkSpec: u1ChallengeCheck }), 'Run U1 check-answer with empty sql');
 assert.equal(chkU1.passed, true, chkU1.message);
 ok(await sql('DROP TABLE lab_courses', 'classroom_practice'), 'Clean up lab_courses');
 console.log('PASS: Unit 1 live queries, resets, and auto-checker verified.');
@@ -183,10 +282,16 @@ let u2Count = 0;
 for (const { step } of allSteps.filter(x => x.section.unit === 'u2')) {
   if (step.type === 'challenge' && step.check) {
     const chk = ok(
-      await api('check-answer', { sql: step.check.expectedSql, database: step.database, checkSpec: step.check }),
+      await api('check-answer', { sql: `-- student answer\n${step.check.expectedSql}`, database: step.database, checkSpec: step.check }),
       `U2 auto-check ${step.id}`
     );
     assert.equal(chk.passed, true, chk.message);
+    if (step.id === 'sql-challenge-distinct-cities') {
+      const nonSelectChk = ok(await api('check-answer', { sql: 'DROP TABLE nonexistent_x;', database: step.database, checkSpec: step.check }), 'U2 query-match rejects non-SELECT');
+      assert.equal(nonSelectChk.passed, false);
+      const negChk = ok(await api('check-answer', { sql: 'SELECT 1 AS wrong_col;', database: step.database, checkSpec: step.check }), 'U2 negative check-answer');
+      assert.equal(negChk.passed, false);
+    }
     continue;
   }
   if (step.type !== 'query') continue;
@@ -324,6 +429,10 @@ const sqliAttack = ok(await api('admin/sqli-demo', { username: "' OR '1'='1", pa
 assert.equal(sqliAttack.vulnerable.rows.length, 4, 'Vulnerable query leaks all portal_users');
 assert.equal(sqliAttack.safe.rows.length, 0, 'Parameterized query returns 0 rows safely');
 
+const sqliComment = ok(await api('admin/sqli-demo', { username: "admin_portal' -- ", password: 'wrong' }), 'SQLi comment-hijack payload');
+assert.ok(sqliComment.vulnerable.rows.length >= 1, 'Vulnerable query hijacks admin_portal row');
+assert.equal(sqliComment.safe.rows.length, 0, 'Parameterized query blocks comment-hijack safely');
+
 ok(await api('reset-unit3', { database: 'security_lab', clientId: 'verify-suite' }), 'Cleanup reset Unit 3');
 console.log('PASS: Unit 3 storage, CRUD, roles, ed25519, personas, SQLi, TLS, and password policy verified.');
 
@@ -352,7 +461,23 @@ assert.ok(auditLog.content.includes('SELECT COUNT(*) FROM students'), 'Expected 
 const metrics = ok(await api('admin/metrics'), 'GET /api/admin/metrics');
 assert.ok(metrics.bufferHitPct >= 0 && metrics.processlist.length > 0, 'Expected live metrics & processlist');
 
-// 25k EXPLAIN indexing test
+// Rehearse all Unit 4 query steps & presets + 25k EXPLAIN indexing check
+for (const { step } of allSteps.filter(x => x.section.unit === 'u4' && x.step.type === 'query')) {
+  if (step.id === 'u4-explain-before') {
+    ok(await api('reset-unit4-perf', { database: 'perf_lab' }), 'Reset perf_lab indexes before u4-explain-before');
+  }
+  ok(await sql(step.sql, step.database, { persona: step.persona || 'dba_lab' }), `U4 query ${step.id}`);
+  for (const [pname, psql] of step.presets || []) {
+    ok(await sql(psql, step.database, { persona: step.persona || 'dba_lab' }), `U4 preset ${step.id} -> ${pname}`);
+  }
+  if (step.inspectSql) {
+    ok(await sql(step.inspectSql, step.database, { persona: step.persona || 'dba_lab' }), `U4 inspect ${step.id}`);
+  }
+  if (step.id === 'u4-create-index-after') {
+    ok(await api('reset-unit4-perf', { database: 'perf_lab' }), 'Reset perf_lab indexes after u4-create-index-after');
+  }
+}
+
 ok(await api('reset-unit4-perf', { database: 'perf_lab' }), 'Reset perf_lab indexes');
 const expBefore = ok(await sql('EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42', 'perf_lab', { persona: 'dba_lab' }), 'EXPLAIN before index');
 const typeColIdx = expBefore.columns.indexOf('type');
@@ -367,19 +492,28 @@ assert.equal(expAfter.rows[0][typeColIdx], 'ref', 'Expected ref scan after index
 assert.equal(expAfter.rows[0][keyColIdx], 'idx_activity_student', 'Expected idx_activity_student chosen');
 assert.ok(Number(expAfter.rows[0][rowsColIdx]) <= 100, 'Expected ~50 rows examined after index');
 
-// Concurrent Dual-Session Lock Wait Test
+// Concurrent Dual-Session Lock Wait Test (with bounded polling)
 ok(await api('reset-unit4-locks', { clientId: 'verify-locks' }), 'Prepare lock sessions');
 ok(await api('session/query', { clientId: 'verify-locks', slot: 'A', sql: 'START TRANSACTION;', database: 'ops_lab', persona: 'dba_lab' }), 'Lock wait A start');
 ok(await api('session/query', { clientId: 'verify-locks', slot: 'A', sql: 'UPDATE accounts SET budget = budget - 5000 WHERE id = 1;', database: 'ops_lab', persona: 'dba_lab' }), 'Lock wait A holds row 1');
 
 const pendingB = api('session/query', { clientId: 'verify-locks', slot: 'B', sql: 'UPDATE accounts SET budget = budget - 1000 WHERE id = 1;', database: 'ops_lab', persona: 'dba_lab' });
-await new Promise(r => setTimeout(r, 350));
-const lockMetrics = ok(await api('admin/metrics'), 'Inspect metrics during active lock wait');
-assert.ok(lockMetrics.transactions.some(t => t.trx_state === 'LOCK WAIT'), 'Expected active LOCK WAIT in INNODB_TRX');
-assert.ok(lockMetrics.dataLocks.some(l => l.lock_status === 'WAITING'), 'Expected WAITING lock in INNODB_LOCKS');
+let lockMetrics = null;
+for (let attempt = 0; attempt < 20; attempt++) {
+  await new Promise(r => setTimeout(r, 100));
+  const candidate = ok(await api('admin/metrics'), 'Poll metrics during active lock wait');
+  if (candidate.transactions.some(t => t.trx_state === 'LOCK WAIT') && candidate.dataLocks.some(l => l.lock_status === 'WAITING')) {
+    lockMetrics = candidate;
+    break;
+  }
+}
+assert.ok(lockMetrics?.transactions?.some(t => t.trx_state === 'LOCK WAIT'), 'Expected active LOCK WAIT in INNODB_TRX');
+assert.ok(lockMetrics?.dataLocks?.some(l => l.lock_status === 'WAITING'), 'Expected WAITING lock in INNODB_LOCKS');
 
 ok(await api('session/query', { clientId: 'verify-locks', slot: 'A', sql: 'COMMIT;', database: 'ops_lab', persona: 'dba_lab' }), 'Commit Session A');
 ok(await pendingB, 'Blocked Session B finished after Session A COMMIT');
+const sessReset = ok(await api('session/reset', { clientId: 'verify-locks' }), 'Reset lock sessions explicitly');
+assert.equal(sessReset.ok, true);
 
 // Reproducible Error 1213 Deadlock Test
 ok(await api('reset-unit4-locks', { clientId: 'verify-dl' }), 'Reset for deadlock test');
@@ -398,16 +532,34 @@ assert.ok(
 );
 ok(await api('reset-unit4-locks', { clientId: 'verify-dl' }), 'Cleanup deadlock sessions');
 
-// Live Backup, Corrupt & Restore Test
-const bkDump = ok(await api('admin/backup', { action: 'dump', filename: 'verify_full.sql' }), 'Take full backup via mariadb-dump');
-assert.equal(bkDump.status.rowCount, 8);
-const bkDrop = ok(await api('admin/backup', { action: 'corrupt' }), 'Simulate DROP TABLE fee_ledger');
-assert.equal(bkDrop.status.tableExists, false);
-const bkRestore = ok(await api('admin/backup', { action: 'restore', filename: 'verify_full.sql' }), 'Restore fee_ledger from backup');
-assert.equal(bkRestore.status.tableExists, true);
-assert.equal(bkRestore.status.rowCount, 8);
-const binlogView = ok(await api('admin/logs?type=binlog&lines=30'), 'Inspect binary log via mariadb-binlog');
-assert.ok(binlogView.binlogs.length >= 1, 'Expected active binary log files');
+// Live Backup (schema, data, full), Corrupt, Restore, Binlog & Reset Test
+const tempBackups = ['verify_schema.sql', 'verify_data.sql', 'verify_full.sql'];
+try {
+  const bkSchema = ok(await api('admin/backup', { action: 'dump-schema', filename: 'verify_schema.sql' }), 'Schema backup');
+  assert.ok(bkSchema.preview.includes('CREATE TABLE'), 'Expected CREATE TABLE in schema dump');
+  const bkData = ok(await api('admin/backup', { action: 'dump-data', filename: 'verify_data.sql' }), 'Data-only backup');
+  assert.ok(bkData.preview.includes('INSERT INTO'), 'Expected INSERT INTO in data dump');
+  const bkDump = ok(await api('admin/backup', { action: 'dump', filename: 'verify_full.sql' }), 'Take full backup via mariadb-dump');
+  assert.equal(bkDump.status.rowCount, 8);
+  const bkDrop = ok(await api('admin/backup', { action: 'corrupt' }), 'Simulate DROP TABLE fee_ledger');
+  assert.equal(bkDrop.status.tableExists, false);
+  const bkRestore = ok(await api('admin/backup', { action: 'restore', filename: 'verify_full.sql' }), 'Restore fee_ledger from backup');
+  assert.equal(bkRestore.status.tableExists, true);
+  assert.equal(bkRestore.status.rowCount, 8);
+  const binlogView = ok(await api('admin/logs?type=binlog&lines=30'), 'Inspect binary log via mariadb-binlog');
+  assert.ok(binlogView.binlogs.length >= 1, 'Expected active binary log files');
+  const bkReset = ok(await api('admin/backup', { action: 'reset' }), 'Reset backup_lab cleanly');
+  assert.equal(bkReset.status.tableExists, true);
+  assert.equal(bkReset.status.rowCount, 8);
+} finally {
+  for (const fname of tempBackups) {
+    try {
+      fs.unlinkSync(path.join('/var/backups/classroom', fname));
+    } catch {
+      // Ignore if absent
+    }
+  }
+}
 
 // Unit 4 capstone auto-checker
 const u4Check = allSteps.find(x => x.step.id === 'u4-capstone-incident').step.check;

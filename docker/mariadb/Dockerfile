@@ -8,7 +8,9 @@ RUN apt-get update \
       -keyout /etc/mysql/certs/ca-key.pem \
       -out /etc/mysql/certs/ca.pem \
       -subj "/CN=DBMS Classroom Lab CA" \
- && printf "[req]\ndistinguished_name=dn\nreq_extensions=v3_req\nprompt=no\n[dn]\nCN=mariadb\n[v3_req]\nsubjectAltName=DNS:mariadb,DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n" > /tmp/openssl-mariadb.cnf \
+      -addext "basicConstraints=critical,CA:TRUE" \
+      -addext "keyUsage=critical,keyCertSign,cRLSign" \
+ && printf "[req]\ndistinguished_name=dn\nreq_extensions=v3_req\nprompt=no\n[dn]\nCN=mariadb\n[v3_req]\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:mariadb,DNS:localhost,IP:127.0.0.1\n" > /tmp/openssl-mariadb.cnf \
  && openssl req -newkey rsa:2048 -nodes \
       -keyout /etc/mysql/certs/server-key.pem \
       -out /tmp/server.csr \

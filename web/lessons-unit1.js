@@ -24,7 +24,7 @@ window.COURSE = {
           ],
           question: 'Could we put everything in a spreadsheet? What would become difficult?',
           answer: 'Yes, a small spreadsheet works at first. As concurrent users, security boundaries, and linked records grow, keeping copies consistent, enforcing rules, and recovering failed writes becomes fragile.',
-          notes: 'Collect answers before introducing the term DBMS. Avoid claiming spreadsheets cannot store data. Ask what breaks when admissions, accounts, and faculty edit separate copies.'
+          notes: 'Collect answers before introducing the term DBMS. Ask what breaks when admissions, accounts, and faculty edit separate spreadsheet files.'
         },
         {
           id: 'applications-dbms',
@@ -38,7 +38,7 @@ window.COURSE = {
           ],
           question: 'Why cannot an airline or bank simply save JSON files into a shared folder?',
           answer: 'Shared files lack atomic multi-record updates, fine-grained permissions (every file reader could see or corrupt all rows), and row-level concurrency control when thousands of users act at once.',
-          notes: 'Walk through each card and tie it to MSCNS406 themes: transactions (banking), concurrency (airlines), and access control (universities/healthcare).'
+          notes: 'Walk through each card and tie it directly to course themes: transactions (banking), row locks (airlines), and privileges (universities/healthcare).'
         },
         {
           id: 'conflicting-copies',
@@ -47,7 +47,7 @@ window.COURSE = {
           type: 'copies',
           question: 'Has the college changed its course name, or only one file?',
           answer: 'Only one copy changed. Repetition makes it easy for copies to disagree. A shared course record eliminates update anomalies.',
-          notes: 'Click "Update admissions copy" first so students see the conflict, then click "Use a shared course record". Emphasize this is a conceptual illustration, not live SQL.'
+          notes: 'Click "Update admissions copy" first so students see the conflict, then click "Use a shared course record". Emphasize this is a conceptual widget before touching SQL.'
         },
         {
           id: 'file-vs-dbms',
@@ -58,28 +58,13 @@ window.COURSE = {
           rows: [
             ['Data redundancy & inconsistency', 'Update every duplicate file manually', 'Normalized tables and shared identifiers'],
             ['Data isolation', 'Write custom scripts per file format', 'Uniform declarative SQL querying'],
-            ['Integrity & atomicity', 'Code checks before crashing mid-write', 'Constraints and atomic ACID transactions'],
-            ['Concurrent access anomalies', 'Lock whole files or overwrite edits', 'Row-level locking and isolation levels'],
-            ['Security & crash loss', 'OS folder permissions & manual copies', 'User privileges, roles, and crash-safe logs']
+            ['Integrity & atomicity', 'Manual code checks before crashing mid-write', 'Declarative constraints and atomic ACID transactions'],
+            ['Concurrent access anomalies', 'Lock whole files or overwrite concurrent edits', 'Row-level locking and isolation levels'],
+            ['Security & crash loss', 'OS folder permissions & ad-hoc backups', 'User privileges, roles, and crash-safe recovery logs']
           ],
           question: 'Does installing a DBMS automatically prevent bad data or data leaks?',
           answer: 'No. Missing constraints, overpowered application accounts, or untested backups still fail even inside a relational DBMS.',
-          notes: 'Highlight the classic five file-system disadvantages from textbooks (redundancy, isolation, integrity, atomicity/concurrency, security) in concrete terms.'
-        },
-        {
-          id: 'concurrent-edit',
-          title: 'Two people can act on the same fact.',
-          lead: 'A course has one seat left. Two users read "1" before either completes an enrollment.',
-          type: 'timeline',
-          items: [
-            ['Read', 'Both users see one available seat.'],
-            ['Decide', 'Both decide they can enroll a student.'],
-            ['Write', 'Without coordination, both writes succeed and oversell the course.'],
-            ['Coordinate', 'Transactions and row locks enforce atomic check-and-update rules.']
-          ],
-          question: 'Would putting each operator on a separate laptop prevent this race condition?',
-          answer: 'No. The contention is over the shared record on the server, not the client device.',
-          notes: 'Use this as motivation for Unit 4 locking and transactions. Keep mechanics conceptual here.'
+          notes: 'Highlight the classic five file-system flaws from textbooks (redundancy, isolation, integrity/atomicity, concurrency, security) in concrete terms.'
         },
         {
           id: 'why-check',
@@ -94,8 +79,8 @@ window.COURSE = {
           correct: 1,
           feedback: 'Separate copies drifted out of sync, and the teacher holds excessive permissions.',
           question: 'Student task: name one more failure and the DBMS mechanism that prevents it.',
-          answer: 'Example: server power loss mid-transfer -> atomic transactions and redo logs. Two students assigned the same ID -> PRIMARY KEY uniqueness.',
-          notes: 'Summarize Section 1.1: a DBMS protects structure, consistency, concurrency, access, and durability.'
+          answer: 'Server power loss mid-transfer -> atomic transactions and redo logs. Two students assigned the same ID -> PRIMARY KEY uniqueness.',
+          notes: 'Wrap Section 1.1 cleanly before separating the data from the DBMS engine in Section 1.2.'
         }
       ]
     },
@@ -106,16 +91,16 @@ window.COURSE = {
         {
           id: 'database-vs-dbms',
           title: 'The data and its manager are different.',
-          lead: 'Use the college lab to attach every term to a concrete running piece.',
+          lead: 'Use the college lab to attach every term to a concrete running component.',
           type: 'cards',
           cards: [
             ['Database', 'college_demo: the organized student, course, and enrollment data stored on disk.'],
             ['DBMS', 'MariaDB Server: the database engine that parses SQL, enforces rules, and manages storage.'],
-            ['Client', 'Adminer or this web console: interfaces that send requests and display returned results.']
+            ['Clients', 'DBeaver, Adminer, or SQL Studio: interfaces that send SQL and display returned results.']
           ],
-          question: 'If you close your browser tab or Adminer, have you deleted the database?',
+          question: 'If you close DBeaver or your browser tab, have you deleted the database?',
           answer: 'No. The MariaDB server and its persistent storage volume live independently of client connections.',
-          notes: 'Clarify why "MariaDB" is the DBMS while "college_demo" is a database managed inside it.'
+          notes: 'Clarify why MariaDB is the DBMS engine while college_demo is a database managed inside it.'
         },
         {
           id: 'people',
@@ -125,56 +110,41 @@ window.COURSE = {
           columns: ['User Category', 'How they interact', 'College example & access'],
           rows: [
             ['Naive / End Users', 'Use pre-built forms, apps, or menus without writing SQL', 'A student checking grades via the web portal (no direct DB account)'],
-            ['Application Programmers', 'Write backend code and parameterized queries that connect to the DBMS', 'Developer building the fee-payment microservice (dev DB access)'],
-            ['Sophisticated Users', 'Write ad-hoc SQL queries, reports, or BI dashboards directly', 'Academic analyst querying enrollment trends (read-only SELECT)'],
-            ['Specialized Users', 'Build domain tools (CAD, GIS, audit forensics, ML pipelines)', 'Security auditor running specialized integrity/log parsers'],
-            ['Database Administrator (DBA)', 'Controls schemas, accounts, privileges, tuning, monitoring, and recovery', 'Lab admin configuring MariaDB security, logs, and backups']
+            ['Application Programmers', 'Write backend code and parameterized queries that connect to the DBMS', 'Developer building the fee-payment service (scoped app DB user)'],
+            ['Sophisticated Users', 'Write ad-hoc SQL queries, reports, or BI dashboards directly', 'Academic analyst querying trends in DBeaver (read-only SELECT)'],
+            ['Specialized Users', 'Build domain tools (CAD, GIS, audit forensics, ML pipelines)', 'Security auditor parsing access/binary logs'],
+            ['Database Administrator (DBA)', 'Controls schemas, accounts, privileges, tuning, monitoring, and recovery', 'Lab admin managing MariaDB security, logs, and backups']
           ],
           question: 'Should a Naive user ever be handed a direct SQL login to the production database?',
           answer: 'No. Naive users should interact only through validated application workflows so business rules and row-level permissions cannot be bypassed.',
-          notes: 'Walk through all four user categories from the MSCNS406 syllabus plus the DBA. Ask students which group they belong to during SQL practice (Sophisticated / App programmer).'
-        },
-        {
-          id: 'data-shapes',
-          title: 'Data can have different kinds of structure.',
-          lead: 'A fixed table is one way to organize facts; semi-structured documents carry per-record keys.',
-          type: 'comparison',
-          columns: ['Form', 'College example', 'Shape'],
-          rows: [
-            ['Structured', 'A student row: id, name, age', 'Fixed columns and strict data types'],
-            ['Semi-structured', '{"student_id": 1, "interests": ["SQL", "Linux"]}', 'Self-describing tags/keys with flexible nesting'],
-            ['Unstructured', 'A scanned handwritten exam paper', 'No predefined queryable field layout']
-          ],
-          question: 'Can a relational DBMS like MariaDB store JSON documents alongside tables?',
-          answer: 'Yes. Modern MariaDB supports JSON validation and JSON functions, though its core strength remains relational tables with strict integrity.',
-          notes: 'Keep focus on data shape before product names.'
+          notes: 'Walk through all four user categories from the MSCNS406 syllabus plus the DBA role.'
         },
         {
           id: 'vocabulary-check',
           title: 'Checkpoint: identify the roles and layers.',
-          lead: 'An analyst uses Adminer in a browser to run SELECT queries against college_demo on MariaDB.',
+          lead: 'An analyst uses DBeaver on her laptop to run SELECT queries against college_demo on MariaDB.',
           type: 'quiz',
           options: [
-            'The analyst is a Naive User and Chrome is the DBMS',
+            'The analyst is a Naive User and DBeaver is the DBMS',
             'The analyst is a Sophisticated User and MariaDB Server is the DBMS',
-            'college_demo is the DBMS and Adminer stores the files'
+            'college_demo is the DBMS and DBeaver stores all table pages'
           ],
           correct: 1,
           feedback: 'Writing direct ad-hoc queries makes the analyst a Sophisticated User; MariaDB Server is the DBMS.',
           question: 'Student task: distinguish an Application Programmer from a DBA in one sentence each.',
-          answer: 'An Application Programmer builds software modules that read/write approved data; a DBA governs overall schema lifecycle, security accounts, availability, tuning, and backups.',
-          notes: 'Ensure students clearly separate user roles before moving to tables and attributes.'
+          answer: 'An Application Programmer builds software modules that read/write approved data; a DBA governs schema lifecycle, security accounts, availability, tuning, and backups.',
+          notes: 'Verify students distinguish user roles clearly before inspecting relational tables in Section 1.3.'
         }
       ]
     },
     {
-      id: 'tables', unit: 'u1', number: '1.3', title: 'Tables, rows & columns', minutes: 75,
+      id: 'tables', unit: 'u1', number: '1.3', title: 'Tables, rows, domains & NULL', minutes: 60,
       objective: 'Read a relational table and explain its rows, attributes, domains and NULL values.',
       steps: [
         {
           id: 'explore-table',
           title: 'A table gives related facts a shape.',
-          lead: 'These records come directly from the MariaDB lab. Click a column heading or a row to highlight it.',
+          lead: 'These records come directly from MariaDB. Click a column heading or a row to highlight it.',
           type: 'explorer',
           table: 'students',
           question: 'What does one row represent? What does the age column represent?',
@@ -184,35 +154,18 @@ window.COURSE = {
         {
           id: 'relational-words',
           title: 'Same ideas, two vocabularies.',
-          lead: 'Relational algebra/theory and everyday SQL describe the same structures with slightly different terms.',
+          lead: 'Relational theory and everyday SQL describe the same structures with slightly different terms.',
           type: 'comparison',
           columns: ['Everyday SQL term', 'Relational theory term', 'Example'],
           rows: [
             ['Table', 'Relation', 'students'],
             ['Row / record', 'Tuple', 'The record for student 1'],
             ['Column / field', 'Attribute', 'email'],
-            ['Allowed values', 'Domain', 'Valid ages (>= 16) and email strings']
+            ['Allowed values', 'Domain', 'Valid ages (>= 16) and unique emails']
           ],
           question: 'Is the third visible row guaranteed to stay third forever without ORDER BY?',
           answer: 'No. Relations are unordered sets; only an explicit ORDER BY clause guarantees display sequence.',
-          notes: 'Note briefly that SQL tables allow NULLs and duplicates unless constrained, whereas pure mathematical relations prohibit duplicates.'
-        },
-        {
-          id: 'domains',
-          title: 'A value needs to fit the column.',
-          lead: 'A data type controls storage format; constraints express business rules the type alone cannot enforce.',
-          type: 'comparison',
-          columns: ['Column', 'Type', 'Additional rule'],
-          rows: [
-            ['id', 'INT', 'Primary key: unique and not NULL'],
-            ['name', 'VARCHAR(100)', 'NOT NULL; cannot be omitted'],
-            ['email', 'VARCHAR(120)', 'UNIQUE and NOT NULL'],
-            ['age', 'INT', 'CHECK (age >= 16); NULL is allowed'],
-            ['course_id', 'INT', 'Must match an existing courses.id, or be NULL']
-          ],
-          question: 'Does VARCHAR(120) verify that a string contains an "@" email format?',
-          answer: 'No. VARCHAR(120) restricts character length only; format rules require extra CHECK/application validation.',
-          notes: 'Preview how the next live DESCRIBE query reflects these rules.'
+          notes: 'Note briefly that SQL tables allow NULLs and duplicates unless constrained, whereas mathematical relations forbid duplicates.'
         },
         {
           id: 'null',
@@ -226,60 +179,30 @@ window.COURSE = {
           ],
           question: 'Why does WHERE age = NULL fail to return students whose age is missing?',
           answer: 'In SQL three-valued logic, comparing anything with NULL evaluates to UNKNOWN, not TRUE. Use WHERE age IS NULL instead.',
-          notes: 'Mention that CHECK (age >= 16) still permits NULL in SQL because UNKNOWN does not fail a CHECK constraint.'
+          notes: 'Remind students that CHECK (age >= 16) still accepts NULL in SQL unless NOT NULL is also declared.'
         },
         {
           id: 'inspect-schema',
-          title: 'Ask MariaDB about the table.',
-          lead: 'Run DESCRIBE to inspect table metadata even before learning CREATE TABLE syntax.',
+          title: 'Ask MariaDB about table structure.',
+          lead: 'Run DESCRIBE to inspect column types, domains, nullability, and key metadata directly from SQL Studio.',
           type: 'query',
           database: 'college_demo',
           sql: 'DESCRIBE students;',
           expected: 'Five columns. id is PRI (primary key), email is UNI (unique), age and course_id allow NULL.',
           question: 'Which columns in this output describe structure rather than student records?',
           answer: 'Field, Type, Null, Key, Default, and Extra are all schema metadata from the Data Dictionary.',
-          notes: 'Run the query live and walk across the six metadata columns, highlighting AUTO_INCREMENT on id.'
-        },
-        {
-          id: 'tables-check',
-          title: 'Checkpoint: explain one student record.',
-          lead: 'Check how relations, tuples, attributes, and domains fit together.',
-          type: 'quiz',
-          options: [
-            'A row stores one attribute across all students',
-            'A column holds the entire database',
-            'A row represents one complete student tuple'
-          ],
-          correct: 2,
-          feedback: 'Each row groups attribute values describing one single entity instance.',
-          question: 'Student task: propose three columns and types for a library books table.',
-          answer: 'Example: book_id INT PRIMARY KEY, title VARCHAR(200) NOT NULL, published_year INT CHECK (published_year >= 1450).',
-          notes: 'Recap why titles or years alone cannot uniquely identify copies of a book.'
+          notes: 'Run DESCRIBE live and highlight id AUTO_INCREMENT and email UNI.'
         }
       ]
     },
     {
-      id: 'keys', unit: 'u1', number: '1.4', title: 'Keys & integrity', minutes: 75,
+      id: 'keys', unit: 'u1', number: '1.4', title: 'Keys & integrity', minutes: 60,
       objective: 'Choose identifiers and explain how entity, referential, and domain constraints protect integrity.',
       steps: [
         {
-          id: 'names-not-ids',
-          title: 'Two students can have the same name.',
-          lead: 'Humans recognize names; databases require unambiguous unique identifiers.',
-          type: 'comparison',
-          columns: ['id', 'name', 'email'],
-          rows: [
-            [21, 'Riya Sharma', 'riya21@example.com'],
-            [37, 'Riya Sharma', 'riya37@example.com']
-          ],
-          question: 'If staff say "update Riya Sharma", which record should change?',
-          answer: 'The request is ambiguous. Updating by id = 21 identifies exactly one row.',
-          notes: 'Point out that personal names change (marriage/spelling fixes), making surrogate IDs far more stable.'
-        },
-        {
           id: 'key-family',
           title: 'Keys have different jobs.',
-          lead: 'Understand candidate, primary, alternate, composite, and foreign keys in one schema.',
+          lead: 'Human names repeat (two students can both be named Riya Sharma); schemas rely on strict keys to identify and link rows.',
           type: 'comparison',
           columns: ['Key Type', 'Meaning', 'College Lab Example'],
           rows: [
@@ -291,12 +214,12 @@ window.COURSE = {
           ],
           question: 'Can multiple students share the same foreign-key value?',
           answer: 'Yes. Many students can reference course 101; a foreign key restricts allowed values, not multiplicity.',
-          notes: 'Clarify that a composite unique key can coexist alongside an auto-increment primary key.'
+          notes: 'Point out that personal names change and collide, which is why numeric IDs or emails serve as keys.'
         },
         {
           id: 'integrity-demo',
           title: 'Will this proposed record be accepted?',
-          lead: 'Test three candidate rows against entity and referential rules before touching real SQL.',
+          lead: 'Test three candidate rows against entity and referential rules before writing INSERT SQL.',
           type: 'integrity',
           question: 'Why are the two rejected candidates failing for completely different reasons?',
           answer: 'Duplicate ID violates Entity Integrity (uniqueness). Missing course 999 violates Referential Integrity (dangling pointer).',
@@ -335,13 +258,13 @@ window.COURSE = {
       ]
     },
     {
-      id: 'relationships', unit: 'u1', number: '1.5', title: 'Relationships', minutes: 75,
+      id: 'relationships', unit: 'u1', number: '1.5', title: 'Relationships', minutes: 60,
       objective: 'Trace one-to-one, one-to-many and many-to-many relationships using keys.',
       steps: [
         {
           id: 'cardinality',
           title: 'How many records may be related?',
-          lead: 'Cardinality describes the allowed relationship rules in the schema, not merely today’s sample rows.',
+          lead: 'Cardinality describes allowed relationship rules in the schema, not merely today’s sample row count.',
           type: 'cards',
           cards: [
             ['One to One (1:1)', 'Each student has at most one profile row, enforced by UNIQUE(student_id) in profiles.'],
@@ -382,7 +305,7 @@ window.COURSE = {
           expected: 'Five students paired with their primary course names.',
           question: 'Did running this JOIN physically combine students and courses on disk?',
           answer: 'No. JOIN computes a transient query result while keeping both base tables normalized and independent.',
-          notes: 'Focus on the matching IDs rather than full JOIN syntax (covered in Unit 2).'
+          notes: 'Focus on the matching IDs rather than full JOIN syntax (which Unit 2 covers thoroughly).'
         },
         {
           id: 'relationships-check',
@@ -413,54 +336,33 @@ window.COURSE = {
           type: 'schema-instance',
           question: 'When a student registers today, does the schema change or the instance?',
           answer: 'Only the instance changes. Schema changes occur only when running DDL such as ALTER TABLE to add/remove columns or rules.',
-          notes: 'Toggle "Add illustrative row" (instance) vs "Add an age column" (schema).'
-        },
-        {
-          id: 'three-levels',
-          title: 'One system, three levels of abstraction.',
-          lead: 'Switch between External, Conceptual, and Internal views of the exact same college system.',
-          type: 'layers',
-          question: 'Does an accounts clerk need to know about 16 KB InnoDB data pages to print a fee receipt?',
-          answer: 'No. The three-level architecture insulates users from internal storage formats and full schema complexity.',
-          notes: 'Emphasize that External, Conceptual, and Internal are abstraction levels within the DBMS, not three separate apps.'
+          notes: 'Toggle "Add illustrative row" (instance change) vs "Add an age column" (schema change).'
         },
         {
           id: 'schema-mappings',
-          title: 'Mappings connect the three schema levels.',
-          lead: 'Click each box in the ANSI-SPARC diagram—especially the two mapping layers—to see how queries translate downward.',
+          title: 'Three-Schema Architecture & Mappings.',
+          lead: 'Click each box in the ANSI-SPARC diagram—especially the two mapping layers—to see how External, Conceptual, and Internal levels isolate changes.',
           type: 'diagram',
           diagram: 'three-schema',
           question: 'Which mapping absorbs a conceptual table split, and which absorbs adding a disk index?',
-          answer: 'External–Conceptual mapping absorbs logical table splits (logical data independence). Conceptual–Internal mapping absorbs storage/index changes (physical data independence).',
-          notes: 'Explicitly cover External–Conceptual and Conceptual–Internal mappings from the MSCNS406 syllabus before discussing independence.'
+          answer: 'External–Conceptual mapping absorbs logical table splits (Logical Data Independence). Conceptual–Internal mapping absorbs storage/index changes (Physical Data Independence).',
+          notes: 'Walk top-to-bottom through External Views -> External–Conceptual Mapping -> Conceptual Schema -> Conceptual–Internal Mapping -> Internal Schema.'
         },
         {
-          id: 'physical-independence',
-          title: 'Physical data independence in action.',
-          lead: 'A DBA adds a B+Tree index or reorganizes storage without changing a single application SQL query.',
+          id: 'data-independence',
+          title: 'Logical vs Physical Data Independence.',
+          lead: 'Both independence guarantees come directly from updating a mapping layer rather than rewriting application queries.',
           type: 'comparison',
-          columns: ['Application SQL', 'Internal Storage Change', 'Impact on Query'],
+          columns: ['Dimension', 'Logical Data Independence', 'Physical Data Independence'],
           rows: [
-            ['SELECT name FROM students WHERE age > 20;', 'DBA adds an index on age or moves .ibd storage', 'Query remains identical; execution path speeds up']
+            ['Mapping layer changed', 'External – Conceptual Mapping', 'Conceptual – Internal Mapping'],
+            ['What changes below?', 'Split/merge tables, add columns, reshape relationships', 'Add B+Tree indexes, compress pages, relocate .ibd files'],
+            ['Protection guarantee', 'Existing External Views & app queries keep running', 'Logical schema & all SQL statements remain untouched'],
+            ['Practical difficulty', 'Harder: multi-table joins inside views may not support writes', 'Easier: MariaDB optimizer chooses new indexes transparently']
           ],
-          question: 'Why is physical data independence usually easier to achieve than logical independence?',
-          answer: 'Changing files, compression, or indexes leaves table names, columns, and relational meanings unchanged—only the Conceptual–Internal mapping updates.',
-          notes: 'Tie back directly to Unit 4 indexing lab where adding an index speeds up EXPLAIN with zero SQL changes.'
-        },
-        {
-          id: 'logical-independence',
-          title: 'Logical data independence and its limits.',
-          lead: 'Suppose students is split into student_core and student_contacts.',
-          type: 'timeline',
-          items: [
-            ['Old external interface', 'Reports select id, name, email from one roster view.'],
-            ['Conceptual split', 'Email moves into a separate contacts table.'],
-            ['External–Conceptual mapping', 'A compatibility VIEW joins both tables to preserve the old column list.'],
-            ['Practical limit', 'Reads stay compatible, though multi-table writes through a view often require code changes.']
-          ],
-          question: 'Can a view guarantee that every legacy INSERT/UPDATE works after splitting a table?',
-          answer: 'No. Multi-table joins inside views are generally not updatable; logical independence works much better for reads than writes.',
-          notes: 'Preview Unit 2 complex vs updatable views cleanly.'
+          question: 'Why does adding a secondary index in Unit 4 demonstrate Physical Data Independence?',
+          answer: 'Adding an index restructures internal B+Tree storage pages, yet existing SELECT queries require zero syntax changes.',
+          notes: 'Exam staple: compare both columns row-by-row so students never swap External–Conceptual and Conceptual–Internal mappings.'
         },
         {
           id: 'abstraction-check',
@@ -485,21 +387,6 @@ window.COURSE = {
       objective: 'Locate Query Processor, Storage Manager, application tiers, and trace a query end-to-end.',
       steps: [
         {
-          id: 'our-lab',
-          title: 'Meet the parts of your running Docker lab.',
-          lead: 'Docker isolates each architectural layer into its own clean container.',
-          type: 'timeline',
-          items: [
-            ['Browser', 'Renders this console and Adminer UI.'],
-            ['Classroom API / Service', 'Formats requests and holds database connections inside Docker.'],
-            ['MariaDB Server', 'Parses SQL, enforces permissions/constraints, and executes plans.'],
-            ['Docker Volume', 'Persists database files across container restarts.']
-          ],
-          question: 'If you stop the web container while keeping the Docker volume, do student records survive?',
-          answer: 'Yes. Persistent data resides in the classroom_db named Docker volume, not inside ephemeral app containers.',
-          notes: 'Remind students not to run "docker compose down -v" unless they intentionally want to erase all lab volumes.'
-        },
-        {
           id: 'dbms-internals-diagram',
           title: 'Inside the DBMS engine: Query Processor & Storage Manager.',
           lead: 'Every database engine separates understanding SQL from reading/locking disk pages. Click each subsystem.',
@@ -507,7 +394,7 @@ window.COURSE = {
           diagram: 'dbms-architecture',
           question: 'Which subsystem verifies user privileges and coordinates transaction locks?',
           answer: 'The Storage Manager (specifically Authorization & Integrity Manager + Transaction Manager), working together with the Buffer Manager and Disk Storage.',
-          notes: 'Use this diagram to satisfy the syllabus "Database System architecture" internal components topic before stepping through a single query.'
+          notes: 'Inspect all 4 nodes so students see DDL Interpreter, DML Optimizer, Buffer Manager, and Data Dictionary.'
         },
         {
           id: 'tiers',
@@ -518,32 +405,32 @@ window.COURSE = {
           rows: [
             ['1-Tier', 'App + Embedded DB in one process', 'Local SQLite inside a mobile/desktop app'],
             ['2-Tier', 'Client directly → DBMS server', 'DBeaver or mariadb CLI connecting directly to MariaDB on 127.0.0.1:3307'],
-            ['3-Tier', 'Browser → App/API Server → DBMS', 'This Console → Node API → MariaDB (also web apps)']
+            ['3-Tier', 'Browser → App/API Server → DBMS', 'This Console → Node API → MariaDB (and Adminer / web apps)']
           ],
-          question: 'Which topology does this classroom console use when executing SQL?',
-          answer: '3-Tier: Browser -> Nginx/Node API -> MariaDB Server. Adminer is also 3-tier (PHP runs server-side before querying MariaDB).',
-          notes: 'Point out that keeping DB credentials inside the middle tier prevents exposing database passwords to browsers.'
+          question: 'Why does keeping DB credentials inside a middle API tier improve web app security?',
+          answer: 'Browsers never see database usernames or passwords; the backend enforces authentication, validation, and request limits.',
+          notes: 'Highlight how students use BOTH 3-Tier (this Console) and 2-Tier (DBeaver on port 3307) in this same Docker lab.'
         },
         {
           id: 'query-journey',
           title: 'Follow one query from request to result.',
-          lead: 'Click through each stage of executing SELECT name FROM students WHERE id = 1.',
+          lead: 'Click through each stage of executing SELECT id, name FROM students WHERE id = 1.',
           type: 'pipeline',
           question: 'Where does MariaDB decide whether to use an index or scan the whole table?',
           answer: 'In the Plan (Query Optimizer) stage, using table statistics and index metadata before execution begins.',
-          notes: 'Step slowly through Request -> Parse -> Plan -> Execute -> Return.'
+          notes: 'Step slowly through Request -> Parse & resolve -> Plan -> Execute -> Return.'
         },
         {
           id: 'real-request',
           title: 'Send the query you just traced.',
-          lead: 'Execute the exact traced query against live MariaDB.',
+          lead: 'Execute that exact traced query against live MariaDB in SQL Studio on the right.',
           type: 'query',
           database: 'college_demo',
           sql: 'SELECT id, name\nFROM students\nWHERE id = 1;',
           expected: 'Returns student 1 (Aman Verma) from college_demo.',
           question: 'Did your browser have to parse .ibd binary pages to show Aman’s name?',
           answer: 'No. MariaDB’s Storage Manager and Buffer Manager read the page and returned structured rows over the network protocol.',
-          notes: 'Connect this live output back to the previous pipeline animation.'
+          notes: 'Connect this live output back to the previous pipeline step.'
         },
         {
           id: 'architecture-check',
@@ -570,19 +457,19 @@ window.COURSE = {
         {
           id: 'lab-start',
           title: 'The database is ready. Start exploring.',
-          lead: 'college_demo is read-only for the console account; classroom_practice is your editable sandbox.',
+          lead: 'college_demo is read-only for classroom_console; classroom_practice is your editable sandbox (you can also explore Units 3–4 DBs in the SQL Studio dropdown).',
           type: 'query',
           database: 'college_demo',
           sql: 'SHOW DATABASES;',
           expected: 'Shows databases visible to the limited classroom_console identity (college_demo, classroom_practice, sql_lab, information_schema).',
-          question: 'Why does classroom_console not see security_lab or root-only databases?',
-          answer: 'SHOW DATABASES respects account privileges. Least-privilege accounts only list databases they have grants on.',
-          notes: 'Explain that each query opens a fresh connection; the Database dropdown acts like USE <db>.'
+          question: 'Why does classroom_console not list security_lab or root-only databases?',
+          answer: 'SHOW DATABASES respects account privileges. Least-privilege accounts only see databases they hold grants on.',
+          notes: 'Point out that choosing security_lab or perf_lab in the Studio dropdown switches to dba_lab automatically while college_demo stays read-only.'
         },
         {
           id: 'lab-tables',
           title: 'Inspect what already exists.',
-          lead: 'Load the three presets to inspect table names, column metadata, and live course records.',
+          lead: 'Load the presets on the left to inspect table names, column metadata, and live course records.',
           type: 'query',
           database: 'college_demo',
           sql: 'SHOW TABLES;',
@@ -594,7 +481,7 @@ window.COURSE = {
           expected: 'Lists courses, enrollments, students, and the student_course_summary view.',
           question: 'Why does SHOW TABLES list student_course_summary even though it is a view?',
           answer: 'MariaDB lists both base tables and views in SHOW TABLES; SHOW FULL TABLES distinguishes BASE TABLE vs VIEW.',
-          notes: 'Encourage students to click each preset and predict output before clicking Run.'
+          notes: 'Click each preset pill on the left and predict the output before clicking Run ⌘↵ on the right.'
         },
         {
           id: 'lab-create',
@@ -606,8 +493,8 @@ window.COURSE = {
           sql: 'CREATE TABLE lab_students (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(100) NOT NULL,\n  email VARCHAR(120) NOT NULL UNIQUE,\n  age INT CHECK (age >= 16)\n);',
           expected: 'Statement completed. The table now exists with zero rows.',
           question: 'What happens if you click Run a second time without resetting?',
-          answer: 'MariaDB raises Error 1050 (Table already exists). Use "Reset lab_students" when repeating a lecture.',
-          notes: 'Demonstrate creating the table, then show the Reset lab_students button for safe repeats.'
+          answer: 'MariaDB raises Error 1050 (Table already exists). Use "Reset lab_students" in SQL Studio when repeating a lecture.',
+          notes: 'Run CREATE TABLE, then show how "Reset lab_students" in the Studio header safely clears just this practice table.'
         },
         {
           id: 'lab-insert',
@@ -621,12 +508,12 @@ window.COURSE = {
           expected: '3 row(s) affected on the first run; repeating fails due to UNIQUE(email).',
           question: 'Why is omitting id valid here when id is a NOT NULL PRIMARY KEY?',
           answer: 'AUTO_INCREMENT automatically generates the next sequential integer.',
-          notes: 'If jumping directly to this step, click Prepare example first so lab_students exists.'
+          notes: 'If jumping directly to this step, click Prepare in SQL Studio first so lab_students exists cleanly.'
         },
         {
           id: 'lab-select',
-          title: 'Ask for all rows, then fewer columns.',
-          lead: 'Compare SELECT * with selecting specific columns.',
+          title: 'Query all columns, specific projections & WHERE filters.',
+          lead: 'Compare SELECT *, projecting name/age columns, and filtering age > 20.',
           type: 'query',
           database: 'classroom_practice',
           setup: true,
@@ -635,27 +522,13 @@ window.COURSE = {
           sql: 'SELECT * FROM lab_students ORDER BY id;',
           presets: [
             ['All columns', 'SELECT * FROM lab_students ORDER BY id;'],
-            ['Name and age', 'SELECT name, age FROM lab_students ORDER BY id;']
+            ['Name and age', 'SELECT name, age FROM lab_students ORDER BY id;'],
+            ['Filter age > 20', 'SELECT name, age FROM lab_students WHERE age > 20 ORDER BY age;']
           ],
-          expected: 'Three sample rows; projecting name and age does not delete email from the table.',
-          question: 'Does omitting email in SELECT remove it from disk?',
-          answer: 'No. SELECT only shapes the returned result set.',
-          notes: 'Use Prepare example if lab_students was not created earlier.'
-        },
-        {
-          id: 'lab-filter',
-          title: 'Return only rows matching a condition.',
-          lead: 'Predict who remains when filtering by age > 20.',
-          type: 'query',
-          database: 'classroom_practice',
-          setup: true,
-          seedPractice: true,
-          resetKind: 'practice',
-          sql: 'SELECT name, age\nFROM lab_students\nWHERE age > 20\nORDER BY age;',
-          expected: 'Kabir (22) and Aman (25); Riya (19) is filtered out.',
-          question: 'Would a student aged exactly 20 match age > 20?',
-          answer: 'No, > is strict. You would need age >= 20.',
-          notes: 'Modify the threshold live in the editor (e.g. 22) to show live results.'
+          expected: 'Three sample rows; filtering age > 20 returns Kabir (22) and Aman (25), leaving out Riya (19).',
+          question: 'Does omitting email in SELECT delete it from disk? And would age = 20 match age > 20?',
+          answer: 'SELECT only shapes returned columns without modifying stored data. Strict > excludes age 20 (use age >= 20 to include 20).',
+          notes: 'Click Prepare if arriving directly, then step through all 3 presets to demonstrate projection and WHERE filtering.'
         },
         {
           id: 'lab-constraints',
@@ -675,7 +548,7 @@ window.COURSE = {
           expected: 'All three presets intentionally fail with MariaDB constraint errors.',
           question: 'Which specific constraint caught each of the three bad rows?',
           answer: '1) Duplicate entry -> UNIQUE(email). 2) CONSTRAINT failed -> CHECK(age >= 16). 3) Column cannot be null -> NOT NULL on name.',
-          notes: 'Ensure Prepare example is clicked if arriving here directly.'
+          notes: 'Click Prepare in SQL Studio if arriving here directly before running each failing preset.'
         },
         {
           id: 'lab-challenge',
@@ -697,28 +570,12 @@ window.COURSE = {
           },
           question: 'Write and execute your CREATE TABLE and INSERT statements one at a time in classroom_practice.',
           answer: "CREATE TABLE lab_courses (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  course_name VARCHAR(100) NOT NULL,\n  duration_months INT NOT NULL CHECK (duration_months > 0)\n);\n\nINSERT INTO lab_courses (course_name, duration_months)\nVALUES ('Cybersecurity', 6), ('Databases', 4), ('Python', 3);\n\nSELECT * FROM lab_courses ORDER BY id;",
-          notes: 'Give students 5–8 minutes in Student Mode using Hints and Check my answer. Note that Reset lab_students leaves lab_courses untouched.'
-        },
-        {
-          id: 'lab-recap',
-          title: 'First MariaDB workflow complete.',
-          lead: 'You inspected metadata, defined constraints, inserted rows, filtered results, and saw constraint rejections.',
-          type: 'quiz',
-          options: [
-            'CREATE defines structure; INSERT adds rows; SELECT queries data',
-            'SELECT defines schemas every time it runs',
-            'INSERT modifies table column definitions'
-          ],
-          correct: 0,
-          feedback: 'DDL defines structures (CREATE), while DML inserts and retrieves data (INSERT, SELECT).',
-          question: 'Student task: explain one real MariaDB error you triggered today and why it protected the table.',
-          answer: 'Example: Error 4025 CHECK constraint failed prevented storing an unrealistic age (< 16).',
-          notes: 'Wrap up Section 1.8 before closing Unit 1 with DBA responsibilities.'
+          notes: 'Give students 5–8 minutes in Student Mode using Hints, Schema, and ✓ Check my answer. Note that Reset lab_students leaves lab_courses untouched.'
         }
       ]
     },
     {
-      id: 'dba', unit: 'u1', number: '1.9', title: 'DBA & Unit 1 checkpoint', minutes: 60,
+      id: 'dba', unit: 'u1', number: '1.9', title: 'DBA & Unit 1 checkpoint', minutes: 45,
       objective: 'Connect DBA responsibilities to failure scenarios and verify Unit 1 mastery.',
       steps: [
         {
@@ -735,7 +592,7 @@ window.COURSE = {
           ],
           question: 'Why is running a nightly backup script without ever testing a restore risky?',
           answer: 'Unverified backups may be incomplete, corrupted, or missing permissions—only a tested restore proves recoverability.',
-          notes: 'Preview Units 3 and 4 directly from this table.'
+          notes: 'Preview Units 3 and 4 directly from this summary table.'
         },
         {
           id: 'least-privilege',
@@ -749,12 +606,12 @@ window.COURSE = {
           ],
           question: 'What happens if a public web app connects as root and has an SQL injection bug?',
           answer: 'Attackers inherit full administrative privileges across every database on the server instead of being bounded to one app schema.',
-          notes: 'Point out that this console itself uses least privilege (classroom_console cannot write to college_demo).'
+          notes: 'Point out that SQL Studio enforces least privilege automatically whenever college_demo is selected (classroom_console cannot mutate college_demo).'
         },
         {
           id: 'incident',
-          title: 'Incident triage: a faculty account sees student fee balances.',
-          lead: 'Queries are fast and data is accurate, yet confidential financial columns are visible to the wrong role.',
+          title: 'Unit 1 checkpoint: diagnose a confidentiality leak.',
+          lead: 'Queries are fast and data is accurate, yet confidential student fee balances are visible to faculty.',
           type: 'quiz',
           options: [
             'Add a B+Tree index on fees',
@@ -763,37 +620,9 @@ window.COURSE = {
           ],
           correct: 1,
           feedback: 'This is an authorization and external-view boundary failure, not a speed issue.',
-          question: 'Student task: distinguish Authentication ("who are you?") from Authorization ("what may you do?").',
+          question: 'Student task: distinguish Authentication ("who are you?") from Authorization ("what may you do?") and advance to Unit 2.',
           answer: 'Authentication verifies identity (username, password/plugin, TLS cert); Authorization verifies permissions (GRANT SELECT/INSERT, roles) after login.',
-          notes: 'Ensure students clearly contrast authentication vs authorization before Unit 3.'
-        },
-        {
-          id: 'unit-challenge',
-          title: 'Design a two-table college module.',
-          lead: 'Pair exercise: design instructors and modules tables, choose primary/foreign keys, and describe one read-only external view.',
-          type: 'challenge',
-          database: 'classroom_practice',
-          hints: [
-            'Give instructors an id INT PRIMARY KEY AUTO_INCREMENT and unique email.',
-            'Reference instructor_id INT in modules with FOREIGN KEY (instructor_id) REFERENCES instructors(id).'
-          ],
-          question: 'Draft your design in the workspace (optional) and verify your assumptions against the model answer.',
-          answer: "CREATE TABLE lab_instructors (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(100) NOT NULL,\n  email VARCHAR(120) NOT NULL UNIQUE\n);\n\nCREATE TABLE lab_modules (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  title VARCHAR(120) NOT NULL,\n  instructor_id INT NOT NULL,\n  FOREIGN KEY (instructor_id) REFERENCES lab_instructors(id)\n);\n\nExternal view for students exposes module title + instructor name without exposing instructor email.",
-          notes: 'Open-ended modeling challenge; encourage students to justify ON DELETE behavior.'
-        },
-        {
-          id: 'unit-complete',
-          title: 'Unit 1 complete. Foundations in place.',
-          lead: 'You now understand why DBMSs exist, user categories, keys, relationships, three-schema mappings, architecture, and live MariaDB basics.',
-          type: 'cards',
-          cards: [
-            ['Concepts & Mappings', 'Purpose of DBMS, applications, users/DBA, logical & physical independence via mappings.'],
-            ['Relational Model', 'Tables, tuples, attributes, domains, NULL, PK/FK/Composite keys, 1:1 / 1:N / M:N.'],
-            ['Architecture & Lab', 'Query Processor + Storage Manager, 1/2/3-tier, and live MariaDB table creation.']
-          ],
-          question: 'Exit ticket: explain both External–Conceptual and Conceptual–Internal mappings in one sentence.',
-          answer: 'External–Conceptual mapping decouples user views from logical table changes; Conceptual–Internal mapping decouples logical tables from physical disk/index changes.',
-          notes: 'Press Next to proceed directly into Unit 2: SQL Concepts.'
+          notes: 'Click Unit 2 → in the dock (or press →) to move straight into Unit 2: SQL Concepts.'
         }
       ]
     }

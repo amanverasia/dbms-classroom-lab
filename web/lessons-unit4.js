@@ -29,12 +29,12 @@ COURSE.sections.push(
         defaultTab: 'slow',
         question: 'Run the 0.7s slow query and switch to the Slow Query Log tab. Which fields appear inside a slow log entry?',
         answer: 'Timestamp, User@Host, Query_time, Lock_time, Rows_sent, Rows_examined, and the exact SQL statement.',
-        notes: 'Toggle General Log ON briefly, run a query in the editor below or next step, view general.log, then toggle General Log OFF again to demonstrate safe hygiene.'
+        notes: 'Toggle general_log ON briefly, press S to run a query in SQL Studio (or advance to the next step), view general.log, then toggle general_log OFF again.'
       },
       {
         id: 'u4-slow-query-test',
-        title: 'Inspect log configuration variables via SQL.',
-        lead: 'Check active log paths and test a deliberately slow query or unindexed scan.',
+        title: 'Inspect log configuration & tuning variables via SQL.',
+        lead: 'Check active log paths, unindexed-scan logging, and binary log retention settings in SQL Studio.',
         type: 'query',
         persona: 'dba_lab',
         database: 'perf_lab',
@@ -42,12 +42,13 @@ COURSE.sections.push(
         presets: [
           ['Inspect log variables', "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('log_error','general_log','general_log_file','slow_query_log','slow_query_log_file','long_query_time','log_bin','binlog_format');"],
           ['Trigger 0.7s slow query', "SELECT SLEEP(0.7) AS slow_demo, 'Check slow.log now' AS tip;"],
-          ['Count slow queries counter', "SHOW GLOBAL STATUS LIKE 'Slow_queries';"]
+          ['Count slow queries counter', "SHOW GLOBAL STATUS LIKE 'Slow_queries';"],
+          ['Unindexed & binlog retention vars', "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('log_queries_not_using_indexes','binlog_expire_logs_seconds','sync_binlog');"]
         ],
-        expected: 'Displays live log configuration paths and increments Slow_queries counter after SLEEP(0.7).',
+        expected: 'Displays live log paths, Slow_queries counter, unindexed-query logging, and binary log retention seconds.',
         question: 'Notice long_query_time is 0.5 seconds here. Does a 0.2s query appear in slow.log?',
         answer: 'No, unless long_query_time is lowered or log_queries_not_using_indexes is turned ON.',
-        notes: 'Run preset 2, then remind students they can return to step 2 or open step 4.2 metrics to watch Slow_queries tick up.'
+        notes: 'Run Preset 2, then press ← to see it in Slow Query Log or use ⌘K to jump to 4.2 Live MariaDB Activity Monitor.'
       },
       {
         id: 'u4-logs-check',
@@ -73,21 +74,22 @@ COURSE.sections.push(
     steps: [
       {
         id: 'u4-process-status',
-        title: 'Monitor active threads and status counters.',
-        lead: 'Use SHOW FULL PROCESSLIST and SHOW GLOBAL STATUS to spot stuck queries, connection spikes, and read/write ratios.',
+        title: 'Monitor active threads, status counters & KILL.',
+        lead: 'Compare SHOW FULL PROCESSLIST, session vs global status counters, and performance_schema SQL digests.',
         type: 'query',
         persona: 'dba_lab',
         database: 'information_schema',
         sql: 'SHOW FULL PROCESSLIST;',
         presets: [
           ['Active connections (PROCESSLIST)', 'SHOW FULL PROCESSLIST;'],
-          ['Command counters (Com_*)', "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Questions','Com_select','Com_insert','Com_update','Com_delete','Slow_queries');"],
+          ['Global command counters (Com_*)', "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Questions','Com_select','Com_insert','Com_update','Com_delete','Slow_queries');"],
+          ['Session vs Global status compare', "SHOW SESSION STATUS LIKE 'Questions';"],
           ['Top statement digests', 'SELECT SCHEMA_NAME, LEFT(DIGEST_TEXT, 90) AS query_pattern, COUNT_STAR AS calls, ROUND(AVG_TIMER_WAIT/1000000000, 2) AS avg_ms, SUM_ROWS_EXAMINED AS rows_scanned FROM performance_schema.events_statements_summary_by_digest WHERE SCHEMA_NAME IS NOT NULL ORDER BY SUM_TIMER_WAIT DESC LIMIT 10;']
         ],
-        expected: 'Shows live client sessions (State, Time, Info), statement counts, and top digests from performance_schema.',
-        question: 'When an emergency runaway SELECT locks up CPU, what command stops ONLY that query without dropping the connection, vs killing the whole session?',
-        answer: 'KILL QUERY <thread_id> cancels the active statement; KILL <thread_id> terminates the entire connection (rolling back any open transaction).',
-        notes: 'Point out that performance_schema=ON automatically aggregates normalized SQL digests without enabling general_log.'
+        expected: 'Shows live client sessions (Id, User, DB, Command, Time, State, Info), counters, and normalized SQL digests.',
+        question: 'When an emergency runaway SELECT locks up CPU, how does KILL QUERY <id> differ from KILL <id>?',
+        answer: 'KILL QUERY <thread_id> cancels only the currently executing SQL statement while keeping the connection open; KILL <thread_id> closes the entire connection and rolls back any active transaction.',
+        notes: 'Also contrast SHOW PROCESSLIST (truncates Info at 100 chars) vs SHOW FULL PROCESSLIST, and SHOW STATUS (session) vs SHOW GLOBAL STATUS.'
       },
       {
         id: 'u4-enterprise-monitor',
@@ -101,16 +103,16 @@ COURSE.sections.push(
         ],
         question: 'Why are historical trend graphs in an Enterprise Monitor better than running SHOW GLOBAL STATUS once?',
         answer: 'Counters are cumulative since startup; graphs reveal sudden spikes, memory leaks, or 2 AM batch bottlenecks over time.',
-        notes: 'Be completely transparent with students: explain Enterprise Monitor features accurately and demonstrate the underlying real telemetry in the next step.'
+        notes: 'Explain Enterprise Monitor architecture accurately, then open the live telemetry dashboard on the next step.'
       },
       {
         id: 'u4-monitor-live',
         title: 'Live MariaDB Activity Monitor.',
         lead: 'Watch live connections, buffer pool hit ratio, InnoDB transactions, active locks, top slow digests, and per-DB storage footprint in real time.',
         type: 'monitor-lab',
-        question: 'Which panel immediately highlights if a transaction has been sitting idle with uncommitted locks or if one query pattern scans excessive rows?',
-        answer: 'Active InnoDB Transactions (INNODB_TRX) + Data Locks expose open transactions/waits, while Top Statement Digests flags high rows_examined.',
-        notes: 'Enable Auto-refresh (2s) while running queries in the SQL Workspace or during the Section 4.5 locking lab to see real numbers move live!'
+        question: 'Which panels immediately highlight if a transaction is blocked on a lock or if one query pattern scans excessive rows?',
+        answer: 'Active InnoDB Transactions (INNODB_TRX) + Active InnoDB Locks expose open transactions/waits, while Top Statement Digests flags high rows_examined.',
+        notes: 'Enable Auto-refresh (2s) and press S to run queries in SQL Studio (or query via DBeaver / another tab) to watch counters and digests move live!'
       },
       {
         id: 'u4-monitor-check',
@@ -119,11 +121,11 @@ COURSE.sections.push(
         type: 'quiz',
         options: [
           'Check SHOW FULL PROCESSLIST, INNODB_TRX, and top statement digests to identify lock blockers or unindexed scans',
-          'Immediately run TRUNCATE TABLE on application tables',
-          'Disable the error log'
+          'Raise max_connections to 5000 immediately without inspecting queries',
+          'Turn ON general_log in production to log every SELECT'
         ],
         correct: 0,
-        feedback: 'Threads_running spikes usually point to lock contention or CPU/I/O saturation from unindexed queries.',
+        feedback: 'Threads_running spikes point to lock contention or CPU/I/O saturation; raising max_connections or enabling general_log only worsens contention.',
         question: 'Student task: what does a high SUM_ROWS_EXAMINED compared to SUM_ROWS_SENT tell a DBA?',
         answer: 'MariaDB is reading thousands of rows to return only a few—indicating a missing index or unselective predicate.',
         notes: 'Next up: MariaDB Audit plugin configuration.'
@@ -153,12 +155,12 @@ COURSE.sections.push(
       {
         id: 'u4-audit-live',
         title: 'Configure and inspect the Audit Plugin live.',
-        lead: 'Turn server_audit_logging ON, choose audited event categories, run a query or failed command, and read /var/log/mysql/audit.log.',
+        lead: 'Turn server_audit_logging ON, choose audited event categories from the selector, press S to run a query in SQL Studio, and read /var/log/mysql/audit.log.',
         type: 'log-lab',
         defaultTab: 'audit',
-        question: 'Enable audit logging, run a query (or test a denied command in Unit 3 persona lab), and inspect the last column of each audit.log line. What does the trailing number mean?',
+        question: 'Enable audit logging, open SQL Studio (S) to run a SELECT or DDL statement, refresh Audit Log, and inspect the trailing integer on each line. What does it mean?',
         answer: 'The trailing integer is the MariaDB return code: 0 means the statement succeeded; 1142 or 1045 proves an unauthorized access attempt was blocked!',
-        notes: 'Demonstrate toggling server_audit_logging ON -> running SELECT or DDL -> refreshing Audit Log tab to read real CSV audit rows.'
+        notes: 'Demonstrate changing the Events dropdown (e.g. CONNECT, DDL, DCL vs CONNECT, QUERY, TABLE), enabling server_audit_logging, and refreshing Audit Log.'
       },
       {
         id: 'u4-audit-check',
@@ -172,9 +174,9 @@ COURSE.sections.push(
         ],
         correct: 0,
         feedback: 'Filtering server_audit_events to CONNECT, QUERY_DDL, and QUERY_DCL keeps logs compact while capturing every login, schema change, and GRANT/REVOKE.',
-        question: 'Student task: inspect the live audit plugin variables using SHOW GLOBAL VARIABLES LIKE "server_audit%";.',
+        question: "Student task: press S to open SQL Studio and inspect live audit variables using SHOW GLOBAL VARIABLES LIKE 'server_audit%';.",
         answer: "SHOW GLOBAL VARIABLES LIKE 'server_audit%';",
-        notes: 'Remind students to use Reset Unit 4 or toggle audit OFF when finished if they want minimal background log growth.'
+        notes: 'Remind students to use ⌘K -> Reset Unit 4 labs (or toggle audit OFF) afterwards if they want minimal log growth.'
       }
     ]
   },
@@ -199,28 +201,28 @@ COURSE.sections.push(
         expected: 'EXPLAIN reports type = ALL, possible_keys = NULL, key = NULL, and rows ≈ 25,000 (full table scan)!',
         question: 'Notice there are only 50 rows for student 42, yet MariaDB estimates ~25,000 rows examined. Why?',
         answer: 'With only the PRIMARY KEY on id, MariaDB must scan every clustered-index page from row 1 to row 25,000 to check student_id.',
-        notes: 'Use "Reset perf_lab indexes" if an index already exists from an earlier class before running EXPLAIN.'
+        notes: 'Click "Reset Indexes" in SQL Studio if secondary indexes already exist from an earlier class before running EXPLAIN.'
       },
       {
         id: 'u4-create-index-after',
         title: 'Add a B+Tree index and watch EXPLAIN transform.',
-        lead: 'Create idx_activity_student on activity_events(student_id), then click Inspect result to compare the new EXPLAIN plan!',
+        lead: 'Create idx_activity_student on activity_events(student_id), then click Inspect in SQL Studio to compare the new EXPLAIN plan!',
         type: 'query',
         persona: 'dba_lab',
         database: 'perf_lab',
         resetKind: 'unit4-perf',
-        sql: 'CREATE INDEX idx_activity_student ON activity_events(student_id);',
+        sql: 'CREATE INDEX IF NOT EXISTS idx_activity_student ON activity_events(student_id);',
         inspectSql: 'EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42;',
         presets: [
-          ['1. Create index on student_id', 'CREATE INDEX idx_activity_student ON activity_events(student_id);'],
+          ['1. Create index on student_id', 'CREATE INDEX IF NOT EXISTS idx_activity_student ON activity_events(student_id);'],
           ['2. Inspect EXPLAIN plan', 'EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42;'],
-          ['3. Composite covering index', 'CREATE INDEX idx_activity_student_type ON activity_events(student_id, event_type);'],
-          ['4. Drop custom index', 'DROP INDEX idx_activity_student ON activity_events;']
+          ['3. Covering index (Using index)', 'CREATE INDEX IF NOT EXISTS idx_activity_covering ON activity_events(student_id, event_type, duration_ms);'],
+          ['4. Drop custom indexes', 'DROP INDEX IF EXISTS idx_activity_student ON activity_events;']
         ],
-        expected: 'EXPLAIN flips from type = ALL (~25,000 rows) to type = ref, key = idx_activity_student, rows = 50!',
+        expected: 'EXPLAIN flips from type = ALL (~25,000 rows) to type = ref, key = idx_activity_student, rows = 50! Adding idx_activity_covering satisfies the query straight from the index (Extra: Using index).',
         question: 'Why did the SQL SELECT statement itself not have to change at all when we added the index?',
         answer: 'That is Physical Data Independence (from Unit 1.6!): the Conceptual–Internal mapping changed transparently inside the optimizer.',
-        notes: 'Run CREATE INDEX, then immediately press Inspect result so students see type=ref and rows=50 side-by-side in their minds.'
+        notes: 'Run CREATE INDEX, then immediately press Inspect to show type=ref and rows=50; try Preset 3 then Inspect to show Extra = Using index (covering index), then use Reset Indexes.'
       },
       {
         id: 'u4-growth-query',
@@ -231,14 +233,15 @@ COURSE.sections.push(
         database: 'information_schema',
         sql: "SELECT TABLE_SCHEMA AS db_name, TABLE_NAME, ENGINE, TABLE_ROWS,\n ROUND(DATA_LENGTH / 1024, 1) AS data_kb,\n ROUND(INDEX_LENGTH / 1024, 1) AS index_kb,\n ROUND(DATA_FREE / 1024, 1) AS free_kb\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab')\nORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC;",
         presets: [
-          ['Per-table footprint (KB)', "SELECT TABLE_SCHEMA AS db_name, TABLE_NAME, ENGINE, TABLE_ROWS, ROUND(DATA_LENGTH / 1024, 1) AS data_kb, ROUND(INDEX_LENGTH / 1024, 1) AS index_kb, ROUND(DATA_FREE / 1024, 1) AS free_kb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab') ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC;"],
-          ['Per-database summary (MB)', "SELECT TABLE_SCHEMA AS db_name, COUNT(*) AS tables, SUM(TABLE_ROWS) AS approx_rows, ROUND(SUM(DATA_LENGTH + INDEX_LENGTH)/1024/1024, 3) AS total_mb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab') GROUP BY TABLE_SCHEMA ORDER BY total_mb DESC;"],
-          ['Run ANALYZE & CHECK TABLE', 'ANALYZE TABLE perf_lab.activity_events;']
+          ['1. Per-table footprint (KB)', "SELECT TABLE_SCHEMA AS db_name, TABLE_NAME, ENGINE, TABLE_ROWS, ROUND(DATA_LENGTH / 1024, 1) AS data_kb, ROUND(INDEX_LENGTH / 1024, 1) AS index_kb, ROUND(DATA_FREE / 1024, 1) AS free_kb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab') ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC;"],
+          ['2. Per-database summary (MB)', "SELECT TABLE_SCHEMA AS db_name, COUNT(*) AS tables, SUM(TABLE_ROWS) AS approx_rows, ROUND(SUM(DATA_LENGTH + INDEX_LENGTH)/1024/1024, 3) AS total_mb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab') GROUP BY TABLE_SCHEMA ORDER BY total_mb DESC;"],
+          ['3. Refresh stats (ANALYZE TABLE)', 'ANALYZE TABLE perf_lab.activity_events;'],
+          ['4. Verify integrity (CHECK TABLE)', 'CHECK TABLE perf_lab.activity_events;']
         ],
-        expected: 'Shows perf_lab.activity_events at the top with exact data_kb and index_kb (watch index_kb jump after creating idx_activity_student!).',
+        expected: 'Shows perf_lab.activity_events at the top with exact data_kb and index_kb (watch index_kb jump after creating indexes!).',
         question: 'Notice how adding secondary indexes visibly increases index_kb. What does that mean for capacity planning?',
         answer: 'Indexes accelerate reads at the cost of extra disk space, extra RAM in the Buffer Pool, and slightly slower INSERT/UPDATE/DELETE maintenance.',
-        notes: 'Compare index_kb before and after creating idx_activity_student in the previous step!'
+        notes: 'Compare index_kb before and after adding indexes in the previous step; demo ANALYZE TABLE vs CHECK TABLE.'
       },
       {
         id: 'u4-capacity-planning',
@@ -255,7 +258,7 @@ COURSE.sections.push(
         ],
         question: 'Why does ALTER TABLE or OPTIMIZE TABLE require extra free disk headroom even if row count stays constant?',
         answer: 'Table rebuilds and certain online operations temporarily write a shadow copy alongside the existing .ibd file before swapping.',
-        notes: 'Keep maintenance commands practical: CHECK TABLE verifies integrity, ANALYZE updates cardinality, OPTIMIZE defragments.'
+        notes: 'Keep maintenance commands clear: CHECK TABLE verifies integrity, ANALYZE updates cardinality, OPTIMIZE defragments.'
       },
       {
         id: 'u4-perf-check',
@@ -264,12 +267,12 @@ COURSE.sections.push(
         type: 'quiz',
         options: [
           'Run EXPLAIN to confirm a full table scan (ALL), add an index on department_id, and check storage headroom',
-          'Set general_log = ON permanently',
-          'Delete half the historical records without checking'
+          'Run OPTIMIZE TABLE without checking EXPLAIN first',
+          'Set sort_buffer_size = 512M globally for every connection'
         ],
         correct: 0,
-        feedback: 'Verify the execution plan with EXPLAIN first, add the targeted index, and monitor index/disk growth.',
-        question: 'Student task: check perf_lab.activity_events index size right now after adding idx_activity_student.',
+        feedback: 'Verify the execution plan with EXPLAIN first, add the targeted index, and monitor index/disk growth rather than bloating per-connection buffers.',
+        question: 'Student task: check perf_lab.activity_events index size right now via information_schema.TABLES.',
         answer: "SELECT TABLE_NAME, DATA_LENGTH, INDEX_LENGTH FROM information_schema.TABLES WHERE TABLE_SCHEMA='perf_lab' AND TABLE_NAME='activity_events';",
         notes: 'Next section tackles live locked resources and deadlocks using two concurrent persistent connections.'
       }
@@ -294,9 +297,9 @@ COURSE.sections.push(
         title: 'Live Dual-Session Locking & Deadlock Lab.',
         lead: 'Execute SQL concurrently on two independent MariaDB connections (Session A and Session B) against ops_lab.accounts, and inspect active locks in real time!',
         type: 'dual-session',
-        question: 'Follow the guided Lock Wait sequence first: hold Row 1 in Session A, request Row 1 in Session B, click Inspect Locks while B is waiting, then COMMIT Session A.',
-        answer: 'While Session B waits, INNODB_TRX shows Session A RUNNING and Session B in LOCK WAIT, and INNODB_LOCKS shows GRANTED vs WAITING on PRIMARY row 1. Running COMMIT in Session A immediately wakes Session B.',
-        notes: 'Teach both scenarios live: 1) Linear Lock Wait (inspect INNODB_TRX + INNODB_LOCKS while B blocks!) and 2) Deadlock (A locks 1, B locks 2, A requests 2, B requests 1 -> immediate Error 1213). Students can also replicate this in DBeaver by opening two SQL Editor tabs in Manual Commit mode. Use Reset Locks Lab between demos.'
+        question: 'Follow the guided Lock Wait sequence first: hold Row 1 in Session A, request Row 1 in Session B, click Inspect INNODB_TRX & INNODB_LOCKS while B is waiting, then COMMIT Session A.',
+        answer: 'While Session B waits, INNODB_TRX shows Session A RUNNING and Session B in LOCK WAIT, and INNODB_LOCKS shows GRANTED vs WAITING on PRIMARY row 1. Running COMMIT in Session A wakes Session B (or in an emergency, DBA runs KILL <blocking_thread_id>).',
+        notes: 'Teach: 1) Linear Lock Wait, 2) Deadlock (1213), and 3) also explain Metadata Locks ("Waiting for table metadata lock" when DDL runs behind an open transaction) + emergency KILL <trx_mysql_thread_id>. Use Reset Locks Lab between demos.'
       },
       {
         id: 'u4-locks-check',
@@ -343,7 +346,7 @@ COURSE.sections.push(
         type: 'backup-lab',
         question: 'Walk through all 4 steps: 1) Take Full Backup, 2) Simulate Disaster (DROP TABLE), 3) Restore Selected Backup, 4) Inspect Binary Log events.',
         answer: 'mariadb-dump exports reproducible CREATE TABLE + INSERT SQL statements; restoring pipes them back into mariadb to recover all 8 fee receipts, while mariadb-binlog captures incremental transactions after the dump.',
-        notes: 'Also click Schema-Only Backup (--no-data) vs Data-Only (--no-create-info) and preview the SQL output so students visually see the difference.'
+        notes: 'Also click Schema-Only Backup (--no-data) vs Data-Only (--no-create-info) and inspect the preview SQL so students visually see the difference.'
       },
       {
         id: 'u4-backup-check',
@@ -359,24 +362,24 @@ COURSE.sections.push(
         feedback: 'Point-in-Time Recovery (Full backup + mariadb-binlog --stop-datetime) recovers transactions right up to the moment before the mistake.',
         question: 'Student task: why would a 500 GB production database prefer physical mariadb-backup over logical mariadb-dump?',
         answer: 'Physical page copies restore much faster than re-parsing and re-indexing 500 GB of SQL INSERT statements.',
-        notes: 'Finish with Section 4.7 Capstone Incident & Course Completion.'
+        notes: 'Finish with Section 4.7 Capstone DBA Verification Challenge.'
       }
     ]
   },
   {
-    id: 'u4-capstone', unit: 'u4', number: '4.7', title: 'Final DBA incident & course checkpoint', minutes: 60,
-    objective: 'Synthesize indexing, monitoring, locking, security, and recovery skills across all four units.',
+    id: 'u4-capstone', unit: 'u4', number: '4.7', title: 'Final DBA capacity & course capstone', minutes: 60,
+    objective: 'Synthesize aggregation, Data Dictionary auditing, and storage capacity planning across all classroom databases.',
     steps: [
       {
         id: 'u4-capstone-incident',
-        title: 'Capstone DBA diagnosis challenge.',
-        lead: 'Verify perf_lab.activity_events index readiness and inspect total storage across all classroom lab schemas in a single Data Dictionary query.',
+        title: 'Capstone DBA capacity audit challenge.',
+        lead: 'Audit table count and total data + index storage bytes across all 6 classroom lab schemas (backup_lab, college_demo, ops_lab, perf_lab, security_lab, sql_lab) in one Data Dictionary query.',
         type: 'challenge',
         database: 'information_schema',
         persona: 'dba_lab',
         hints: [
           'Query information_schema.TABLES grouping by TABLE_SCHEMA for college_demo, sql_lab, security_lab, perf_lab, ops_lab, backup_lab.',
-          'Order by TABLE_SCHEMA ASC and compute SUM(DATA_LENGTH + INDEX_LENGTH) AS total_bytes.'
+          'Order by TABLE_SCHEMA ASC and compute COUNT(*) AS tables_count and SUM(DATA_LENGTH + INDEX_LENGTH) AS total_bytes.'
         ],
         check: {
           kind: 'query-match',
@@ -387,23 +390,7 @@ COURSE.sections.push(
         },
         question: 'Write a capacity audit query returning TABLE_SCHEMA, tables_count, and total_bytes for all 6 lab databases ordered alphabetically by TABLE_SCHEMA.',
         answer: "SELECT TABLE_SCHEMA, COUNT(*) AS tables_count,\n       SUM(DATA_LENGTH + INDEX_LENGTH) AS total_bytes\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA IN ('backup_lab','college_demo','ops_lab','perf_lab','security_lab','sql_lab')\nGROUP BY TABLE_SCHEMA\nORDER BY TABLE_SCHEMA ASC;",
-        notes: 'Great final wrap-up check connecting Unit 2 aggregation, Unit 3 Data Dictionary, and Unit 4 capacity monitoring.'
-      },
-      {
-        id: 'u4-complete',
-        title: 'Course complete: MSCNS406 Database Administration & Security.',
-        lead: 'All four syllabus units—DBMS fundamentals, SQL, MariaDB security/internals, and monitoring/recovery—are now ready in one repeatable lab.',
-        type: 'quiz',
-        options: [
-          'A DBA’s job ends once tables are created',
-          'Dependable databases combine clean relational design, accurate SQL, layered security/TLS/auditing, proactive performance & lock monitoring, and tested recovery',
-          'Backups only need to be tested after data is lost'
-        ],
-        correct: 1,
-        feedback: 'Every unit reinforces the others: modeling, querying, securing, observing, and recovering work as one discipline.',
-        question: 'Course exit reflection: which lab demonstration—SQLi, TLS, Locking/Deadlock, EXPLAIN indexing, or Backup/Restore—changed your mental model most?',
-        answer: 'Encourage students to revisit any unit in Student Mode using Hints, Schema Reference, and Check my answer for self-study before exams.',
-        notes: 'All 4 MSCNS406 units complete! Remind students they can switch to Student Mode anytime for self-paced practice.'
+        notes: 'Final MSCNS406 capstone combining Unit 2 GROUP BY, Unit 3 Data Dictionary, and Unit 4 storage capacity monitoring. Switch to Student Mode anytime for self-paced exam practice.'
       }
     ]
   }
