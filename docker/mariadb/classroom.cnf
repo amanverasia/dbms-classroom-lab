@@ -1,0 +1,37 @@
+[mariadb]
+sql_mode = STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY
+
+# TLS / SSL certificates generated inside the image
+ssl_ca = /etc/mysql/certs/ca.pem
+ssl_cert = /etc/mysql/certs/server-cert.pem
+ssl_key = /etc/mysql/certs/server-key.pem
+
+# Logging configuration for Unit 4
+log_error = /var/log/mysql/error.log
+general_log = OFF
+general_log_file = /var/log/mysql/general.log
+slow_query_log = ON
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 0.5
+log_bin = /var/log/mysql/mariadb-bin
+server_id = 1
+binlog_format = MIXED
+binlog_expire_logs_seconds = 604800
+
+# Plugins (Community server_audit for Unit 4 + ed25519 authentication for Unit 3)
+plugin_load_add = server_audit
+plugin_load_add = auth_ed25519
+server_audit_logging = OFF
+server_audit_output_type = file
+server_audit_file_path = /var/log/mysql/audit.log
+server_audit_events = CONNECT,QUERY,TABLE
+server_audit_file_rotate_size = 10485760
+server_audit_file_rotations = 3
+
+# Storage, buffers, and monitoring
+performance_schema = ON
+innodb_file_per_table = ON
+innodb_buffer_pool_size = 128M
+innodb_log_buffer_size = 8M
+innodb_lock_wait_timeout = 15
+max_connections = 100

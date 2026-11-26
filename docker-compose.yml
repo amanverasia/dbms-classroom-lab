@@ -1,27 +1,26 @@
 services:
   mariadb:
-    image: mariadb:11.4
-    container_name: dbms-classroom-mariadb
+    build:
+      context: ./docker/mariadb
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: classroom-root
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-classroom-root}
       MARIADB_DATABASE: college_demo
     ports:
-      - "127.0.0.1:3307:3306"
+      - "127.0.0.1:${DB_PORT:-3307}:3306"
     volumes:
       - classroom_db:/var/lib/mysql
-      - ./database/01-seed.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
-      - ./database/02-classroom.sql:/docker-entrypoint-initdb.d/02-classroom.sql:ro
-      - ./database/03-unit2.sql:/docker-entrypoint-initdb.d/03-unit2.sql:ro
+      - mariadb_logs:/var/log/mysql
+      - mariadb_certs:/etc/mysql/certs
+      - ./database:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 3s
-      retries: 20
+      retries: 24
 
   adminer:
     image: adminer:4
-    container_name: dbms-classroom-adminer
     restart: unless-stopped
     depends_on:
       mariadb:
@@ -30,37 +29,51 @@ services:
       ADMINER_DEFAULT_SERVER: mariadb
       ADMINER_DESIGN: nette
     ports:
-      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:${ADMINER_PORT:-8081}:8080"
 
   classroom-api:
-    image: adminer:4
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
     restart: unless-stopped
-    entrypoint: ["php", "-S", "0.0.0.0:8080", "/var/www/classroom/index.php"]
-    environment:
-      CONSOLE_PASSWORD: console-local-demo
-    volumes:
-      - ./server/index.php:/var/www/classroom/index.php:ro
-      - ./server/unit2.php:/var/www/classroom/unit2.php:ro
-      - ./server/unit2-fixture.sql:/var/www/classroom/unit2-fixture.sql:ro
     depends_on:
       mariadb:
         condition: service_healthy
+    environment:
+      PORT: "8080"
+      DB_HOST: mariadb
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-classroom-root}
+      CONSOLE_PASSWORD: ${CONSOLE_PASSWORD:-console-local-demo}
+      DBA_PASSWORD: ${DBA_PASSWORD:-dba-local-demo}
+      ADMINER_PORT: ${ADMINER_PORT:-8081}
+      DB_PORT: ${DB_PORT:-3307}
+    volumes:
+      - mariadb_logs:/var/log/mysql:ro
+      - mariadb_certs:/etc/mysql/certs:ro
+      - classroom_db:/mnt/mariadb-data:ro
+      - classroom_backups:/var/backups/classroom
+      - ./database:/app/database:ro
+      - ./tests:/app/tests:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   teacher-console:
     image: nginx:alpine
-    container_name: dbms-classroom-console
     restart: unless-stopped
     depends_on:
-      - classroom-api
+      classroom-api:
+        condition: service_healthy
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:${CONSOLE_PORT:-8080}:80"
     volumes:
-      - ./index.html:/usr/share/nginx/html/index.html:ro
-      - ./styles.css:/usr/share/nginx/html/styles.css:ro
-      - ./app.js:/usr/share/nginx/html/app.js:ro
-      - ./lessons.js:/usr/share/nginx/html/lessons.js:ro
-      - ./lessons-unit2.js:/usr/share/nginx/html/lessons-unit2.js:ro
+      - ./web:/usr/share/nginx/html:ro
       - ./server/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
   classroom_db:
+  mariadb_logs:
+  mariadb_certs:
+  classroom_backups:

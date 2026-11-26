@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf8f3">
+  <title>DBMS Classroom · MSCNS406</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-group">
+      <button id="sidebarToggle" type="button" aria-label="Toggle section sidebar" title="Toggle sidebar">☰</button>
+      <a class="brand" href="#why/college-problem" aria-label="Start of Unit 1">
+        <span class="brand-mark" aria-hidden="true">db.</span>
+        <span><strong>DBMS Classroom</strong><small>MSCNS406 · Database Administration &amp; Security</small></span>
+      </a>
+    </div>
+    <div class="top-actions">
+      <span id="health" class="connection">Checking MariaDB…</span>
+      <button id="searchButton" type="button" title="Search lessons (⌘K / Ctrl+K)">Search <kbd>⌘K</kbd></button>
+      <button id="themeButton" type="button" title="Switch Paper / Dark theme">Dark</button>
+      <button id="cheatsheetButton" type="button">Cheat sheet</button>
+      <button id="dbeaverButton" type="button">Connect DBeaver</button>
+      <div class="mode-switch" role="group" aria-label="Console mode">
+        <button id="modeInstructor" class="mode-btn active" type="button">Instructor</button>
+        <button id="modeStudent" class="mode-btn" type="button">Student Practice</button>
+      </div>
+      <button id="workspaceButton" type="button">SQL workspace</button>
+      <a id="adminerLink" class="button" href="#adminer" target="_blank" rel="noopener">Adminer ↗</a>
+      <button id="presentButton" class="primary instructor-only" type="button">Present</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <button id="courseButton" class="course-switch" type="button">
+      <span class="eyebrow">Course contents</span>
+      <strong><span id="currentUnitLabel">Unit 1 · DBMS Fundamentals</span><span>⌄</span></strong>
+    </button>
+    <p id="unitSummary" class="sidebar-label">9 sections · 10 teaching hours</p>
+    <nav id="sectionNav" aria-label="Unit sections"></nav>
+    <div class="sidebar-bottom">
+      <p id="studentProgressLine" class="progress-summary" hidden></p>
+      <p id="savedLabel">Your place saves automatically</p>
+      <div class="progress-track"><span id="unitProgress"></span></div>
+      <small id="unitCount"></small>
+      <p class="shortcut"><kbd>←</kbd> <kbd>→</kbd> Steps · <kbd>⌘K</kbd> Jump</p>
+    </div>
+  </aside>
+
+  <main id="main" tabindex="-1">
+    <div class="breadcrumb"><span id="sectionLabel"></span><span id="stepCount"></span></div>
+    <div id="stepRail" class="step-rail" aria-label="Steps in this section"></div>
+    <article id="lesson"></article>
+    <section id="discussion" class="discussion" aria-label="Class discussion"></section>
+  </main>
+
+  <footer class="stage-footer">
+    <div class="footer-left">
+      <button id="notesButton" class="instructor-only" type="button" aria-expanded="false">Teacher notes</button>
+      <button id="exitPresent" type="button" hidden>Exit presentation</button>
+      <span id="footerLabel"></span>
+    </div>
+    <div class="footer-nav">
+      <button id="prevButton" type="button">← Previous</button>
+      <button id="nextButton" class="primary" type="button">Next →</button>
+    </div>
+  </footer>
+
+  <dialog id="notesDialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">Teacher notes · private speaker guidance</p>
+      <button data-close="notesDialog" type="button" aria-label="Close teacher notes">×</button>
+    </div>
+    <h2 id="notesTitle"></h2>
+    <p id="notesText"></p>
+    <div class="dialog-actions spread">
+      <button id="popoutNotesButton" type="button">Pop out speaker window ↗</button>
+      <button data-close="notesDialog" class="primary" type="button">Close</button>
+    </div>
+    <p class="note">Tip: Pop out Speaker Window onto your laptop display before clicking Present on the classroom projector.</p>
+  </dialog>
+
+  <dialog id="courseDialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">Course contents · MSCNS406</p>
+      <button data-close="courseDialog" type="button" aria-label="Close course contents">×</button>
+    </div>
+    <h2>Database Administration<br>&amp; Security</h2>
+    <div id="unitList"></div>
+    <p class="note">All four syllabus units (40 teaching hours) are ready and backed by live MariaDB 11.4 labs.</p>
+  </dialog>
+
+  <dialog id="workspaceDialog" class="workspace-dialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">SQL workspace · MariaDB 11.4</p>
+      <button data-close="workspaceDialog" type="button" aria-label="Close SQL workspace">×</button>
+    </div>
+    <h2>SQL workspace</h2>
+    <p class="note">Drafts save automatically per database while your tab stays open. Use Schema Reference to inspect columns anytime.</p>
+    <div id="workspaceMount"></div>
+  </dialog>
+
+  <dialog id="dbeaverDialog" class="workspace-dialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">DBeaver &amp; Desktop SQL Client Setup</p>
+      <button data-close="dbeaverDialog" type="button" aria-label="Close DBeaver setup">×</button>
+    </div>
+    <h2>Connect DBeaver to This Docker Lab</h2>
+    <p class="note">Use <strong>MariaDB</strong> driver in DBeaver on Windows, Linux, or macOS. Your DBeaver edits run against the exact same live server—use this browser console to reset datasets or auto-check answers.</p>
+    <div class="kpi-grid">
+      <div class="kpi-card"><small>Driver / Server Host</small><strong>MariaDB · 127.0.0.1 <button class="copy-btn" data-copy="127.0.0.1" type="button">Copy</button></strong></div>
+      <div class="kpi-card"><small>TCP Port</small><strong><span id="dbeaverPort">3307</span> <button id="copyDbPort" class="copy-btn" data-copy="3307" type="button">Copy</button></strong></div>
+      <div class="kpi-card"><small>Recommended Start DB</small><strong>sql_lab <button class="copy-btn" data-copy="sql_lab" type="button">Copy</button></strong></div>
+    </div>
+    <h3>Lab User Accounts (1-Click Copy)</h3>
+    <div class="surface">
+      <table class="data-table">
+        <thead><tr><th>Account</th><th>Password</th><th>Purpose &amp; Permissions</th></tr></thead>
+        <tbody>
+          <tr><td><code>classroom_console</code></td><td><code>console-local-demo</code> <button class="copy-btn" data-copy="console-local-demo" type="button">Copy</button></td><td>Units 1–2 practice (<code>college_demo</code> read-only; RW on <code>classroom_practice</code> &amp; <code>sql_lab</code>)</td></tr>
+          <tr><td><code>dba_lab</code></td><td><code>dba-local-demo</code> <button class="copy-btn" data-copy="dba-local-demo" type="button">Copy</button></td><td>Units 3–4 admin labs, roles, <code>EXPLAIN</code>, locks, Data Dictionary</td></tr>
+          <tr><td><code>tls_user</code></td><td><code>tls-local-demo</code> <button class="copy-btn" data-copy="tls-local-demo" type="button">Copy</button></td><td>Enforces <code>REQUIRE SSL</code> (Unit 3 TLS certificate lab)</td></tr>
+          <tr><td><code>web_app</code> / <code>reporting</code></td><td><code>webapp-demo-password</code> / <code>reporting-demo-password</code></td><td>App vs read-only least-privilege comparison</td></tr>
+          <tr><td><code>root</code></td><td><code>classroom-root</code> <button class="copy-btn" data-copy="classroom-root" type="button">Copy</button></td><td>Full server superuser (local classroom only)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="lab-grid-2" style="margin-top:16px">
+      <div class="lab-panel">
+        <h3>TLS / SSL Setup in DBeaver (Unit 3)</h3>
+        <p class="note">In DBeaver → Connection Settings → <strong>SSL</strong> tab → check <em>Use SSL</em>, set <strong>CA Certificate</strong> to this file (and enable <em>Verify server certificate</em>):</p>
+        <p><a class="button primary" href="/api/certs/ca.pem" download="dbms-classroom-ca.pem">Download dbms-classroom-ca.pem</a></p>
+        <p class="note"><strong>Manual Commit for Unit 4 Locks:</strong> In DBeaver SQL Editor toolbar, switch <em>Auto-commit</em> to <em>Manual Commit</em> across two editor tabs to test live row locks &amp; deadlocks.</p>
+      </div>
+      <div class="lab-panel">
+        <h3>Download Practice .sql Worksheets for DBeaver</h3>
+        <p class="note">Open these directly inside DBeaver (File → Open File…):</p>
+        <div class="demo-actions">
+          <a class="button" href="worksheets/unit1-fundamentals.sql" download>Unit 1 Worksheet (.sql)</a>
+          <a class="button" href="worksheets/unit2-sql-practice.sql" download>Unit 2 Exam Practice (.sql)</a>
+          <a class="button" href="worksheets/unit3-security-admin.sql" download>Unit 3 Security (.sql)</a>
+          <a class="button" href="worksheets/unit4-monitoring-locks-backup.sql" download>Unit 4 Monitoring &amp; Locks (.sql)</a>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="searchDialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">Quick Jump · Search All 4 Units</p>
+      <button data-close="searchDialog" type="button" aria-label="Close search">×</button>
+    </div>
+    <div class="field">
+      <input id="searchInput" type="search" placeholder="Search topic, SQL keyword, section (e.g. HAVING, WITH CHECK OPTION, ed25519, deadlock)…" autocomplete="off">
+    </div>
+    <div id="searchResults" class="search-list"></div>
+  </dialog>
+
+  <dialog id="cheatsheetDialog" class="workspace-dialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">MSCNS406 Exam &amp; Lab Quick-Reference</p>
+      <button data-close="cheatsheetDialog" type="button" aria-label="Close cheat sheet">×</button>
+    </div>
+    <div id="cheatTabs" class="demo-actions">
+      <button data-cheat="u1" type="button">Unit 1 · DBMS</button>
+      <button data-cheat="u2" type="button">Unit 2 · SQL</button>
+      <button data-cheat="u3" type="button">Unit 3 · Security</button>
+      <button data-cheat="u4" type="button">Unit 4 · Monitoring</button>
+    </div>
+    <div id="cheatsheetBody"></div>
+  </dialog>
+
+  <dialog id="resetDialog">
+    <div class="dialog-heading">
+      <p class="eyebrow">Scoped lab reset</p>
+      <button data-close="resetDialog" type="button" aria-label="Cancel reset">×</button>
+    </div>
+    <h2 id="resetTitle">Reset lab data?</h2>
+    <p id="resetDescription"></p>
+    <div class="dialog-actions">
+      <button data-close="resetDialog" type="button">Cancel</button>
+      <button id="confirmReset" class="danger" type="button">Confirm reset</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="diagrams.js"></script>
+  <script src="lessons-unit1.js"></script>
+  <script src="lessons-unit2.js"></script>
+  <script src="lessons-unit3.js"></script>
+  <script src="lessons-unit4.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

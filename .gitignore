@@ -4,9 +4,11 @@
 .env.*
 !.env.example
 node_modules/
+server/node_modules/
 __pycache__/
 *.pyc
 *.log
+*.tmp
 coverage/
 test-results/
 playwright-report/
