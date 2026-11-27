@@ -1,72 +1,192 @@
 # DBMS Classroom Lab (MSCNS406)
 
-A self-contained, cross-platform **Database Administration and Security** teaching console and student self-practice lab powered by **MariaDB 11.4** in Docker.
+An interactive **Database Management & Security (MSCNS406)** learning console and self-practice lab running a real **MariaDB 11.4** database right on your laptop inside Docker.
 
-- **All 4 syllabus units (MSCNS406) ready:** 30 sections, 157 teaching steps, interactive architecture/storage/locking SVG diagrams, and real MariaDB execution.
+Whether this is your first week in college or you are preparing for practical exams, you do **not** need to manually install MySQL/MariaDB, Node, or PHP on your computer—Docker handles everything inside a tidy container that will not clutter your system.
+
+- **All 4 syllabus units (MSCNS406) included:** **30 sections, 157 interactive steps** with architecture, storage, join, and locking diagrams, live SQL execution, and instant challenge auto-checking.
 - **Two-fold design:**
-  - **Instructor Mode (Projector):** Clean **Zen Stage** layout with a compact **Floating Dock** (`←`, `SQL Studio`, `Notes`, `Present`, `Next →`), slide-over **Curriculum Drawer** (`M`), **`⌘K` Command Palette**, **Split SQL Studio** (`S`) across all 10 classroom and system-catalog databases, **`Paper` / `Dark`** theme toggle, projector-scaled `Present` mode, private **Pop-out Speaker Notes** window (`BroadcastChannel` synced), and scoped lab resets (`⌘K → Reset Current Lab` / `Restore edit copy`).
-  - **Student Practice Mode:** Switch to **Student** to hide instructor-only chrome, open **SQL Studio** (`S`) with an inline **Schema** drawer and **`Recent…`** history across all 10 unit/catalog databases, and verify SQL challenges with **`Hint 1 / 2`** and **`✓ Check my answer`**.
-- **Runs everywhere:** Identical Docker workflow on **Windows, Linux, and macOS** — zero host database or Node/PHP installations required.
+  - **Student Practice Mode:** Click **`Student`** in the top bar for guided hints (**`Hint 1 / 2`**), inline **Schema** viewer, **`Recent…`** query history, **`✓ Check my answer`** auto-grading, and **Split SQL Studio** (`S`) across all 10 classroom and catalog databases.
+  - **Instructor Mode (Projector):** Clean **Zen Stage** layout, **Floating Dock** (`←`, `SQL Studio`, `Notes`, `Present`, `Next →`), **Curriculum Drawer** (`M`), **`⌘K` Command Palette**, **`Paper` / `Dark`** theme toggle, projector-scaled **`Present`** mode, synced **Pop-out Speaker Notes** window, and 1-click dataset resets.
+- **Works everywhere:** Identical setup on **Windows, macOS, and Linux** — works offline after your first launch.
+
+### What You Need Before Starting
+
+- A **Windows (10/11)**, **macOS**, or **Linux** laptop/PC
+- About **2–3 GB of free disk space** and **10 minutes** for first-time setup
+- Internet connection for the first download (after that, everything runs locally on your laptop)
 
 ---
 
-## Quick Start (Windows, Linux & macOS)
+## Step 1 — Install Docker (One-Time Setup)
 
-Make sure **Docker Desktop** (Windows/macOS) or **Docker Engine + Compose** (Linux) is running.
+> **What is Docker?** Docker is a free app that runs this entire classroom lab (web console + real MariaDB database) inside an isolated box on your computer, so you never have to configure database servers by hand.
 
-- **Windows:** Double-click `start.bat` (or run `.\start.bat` in PowerShell / CMD)
-- **macOS:** Double-click `start.command` (or run `./start.sh`)
-- **Linux:** Run `./start.sh`
-- **Any OS (manual terminal command):**
+Pick your operating system below:
+
+### Windows (Windows 10 or Windows 11)
+
+1. Download **Docker Desktop for Windows** from the official page:
+   **<https://docs.docker.com/desktop/setup/install/windows-install/>**
+   *(Click **Download for Windows — AMD64** on almost all laptops. Only pick ARM64 if your laptop uses a Snapdragon/ARM processor.)*
+2. Double-click the downloaded installer file.
+3. Keep **"Use WSL 2 instead of Hyper-V"** checked (recommended) and follow the prompts.
+4. Click **Close and restart** if Windows asks you to reboot.
+5. Open **Docker Desktop** from the Windows Start Menu:
+   - Accept the Service Agreement.
+   - You can click **Skip** / **Continue without signing in** (no paid account is required).
+6. Look at the bottom-left corner of Docker Desktop and wait until it says **`Engine running`** (with a green dot). Keep Docker Desktop open in the background.
+
+### macOS (MacBook / iMac)
+
+1. Check which chip your Mac has: click the **Apple logo (``)** at the top-left of your screen → **About This Mac**:
+   - **Apple M1 / M2 / M3 / M4…** → choose **Apple Silicon**
+   - **Intel** → choose **Intel Chip**
+2. Download the matching **Docker Desktop for Mac** from the official page:
+   **<https://docs.docker.com/desktop/setup/install/mac-install/>**
+3. Double-click `Docker.dmg`, then drag the **Docker** icon into the **Applications** folder.
+4. Open **Docker** from **Applications** (click **Open** if macOS asks for confirmation).
+   - You can click **Skip** / **Continue without signing in** if prompted.
+5. Wait until the top menu bar icon / bottom-left status shows **`Engine running`**. Keep Docker open in the background.
+
+### Linux (Ubuntu / Debian / Fedora, etc.)
+
+1. Install **Docker Engine** and the **Docker Compose plugin** using the official guide for your distribution:
+   **<https://docs.docker.com/engine/install/>** *(or install Docker Desktop for Linux)*.
+2. Allow your regular user account to run Docker without typing `sudo` every time:
+   ```sh
+   sudo usermod -aG docker "$USER"
+   ```
+3. **Log out and log back in** (or reboot) for the group change to take effect, then make sure the Docker service is started:
+   ```sh
+   sudo systemctl enable --now docker
+   ```
+
+---
+
+## Step 2 — Download This Lab Folder
+
+### Option A — Easiest Way (No Git Required)
+
+1. Scroll up to the top of this GitHub page, click the green **`<> Code`** button, and click **`Download ZIP`**.
+2. Go to your **Downloads** folder and **unzip / extract** `dbms-classroom-lab-main.zip`:
+   - **Windows:** Right-click the `.zip` file → **Extract All…** → **Extract**. *(Important: always open the extracted regular folder afterwards—do NOT double-click `start.bat` from inside the `.zip` preview window!)*
+   - **macOS:** Double-click the `.zip` file to extract the folder.
+3. Move the extracted folder somewhere easy to find (for example, `Desktop` or `Documents`).
+
+### Option B — Using Git (Optional)
+
+```console
+git clone https://github.com/amanverasia/dbms-classroom-lab.git
+cd dbms-classroom-lab
+```
+
+---
+
+## Step 3 — Start the Classroom Lab
+
+Make sure **Docker Desktop (or Docker Engine) is already running** before doing this step.
+
+- **Windows:** Open the extracted `dbms-classroom-lab` folder and double-click **`start.bat`**.
+  - *If Windows shows "Windows protected your PC":* click **More info** → **Run anyway**.
+- **macOS:** Open the extracted `dbms-classroom-lab` folder and double-click **`start.command`**.
+  - *If macOS blocks `start.command` or says "Permission denied" (common for downloaded ZIPs):* open the **Terminal** app, type `cd ` (with a space after `cd`), drag the `dbms-classroom-lab` folder onto the Terminal window, press **Return**, and run:
+    ```sh
+    sh ./start.sh
+    ```
+- **Linux:** Open a terminal inside the folder and run:
+  ```sh
+  sh ./start.sh
+  ```
+- **Manual terminal command (any OS):**
   ```console
   docker compose up -d --build --wait
   ```
 
-Once ready, open:
-- **Classroom Console (Units 1–4):** <http://localhost:8080>
-- **Adminer Database UI:** <http://localhost:8081>
-
-> **Need custom ports?** Copy `.env.example` to `.env` and change `CONSOLE_PORT`, `ADMINER_PORT`, or `DB_PORT` before launching.
->
-> **Stop later without losing data:** `docker compose down`
-
-### Connect with DBeaver (Practice & Exams)
-
-Click **DBeaver** in the console top bar (or open **`⌘K` → Connect DBeaver**) for 1-click copyable credentials, the downloadable `dbms-classroom-ca.pem` TLS certificate, and downloadable `.sql` practice worksheets (`web/worksheets/`):
-
-| Setting | Value |
-|---|---|
-| Driver | MariaDB |
-| Server Host | `127.0.0.1` |
-| Port | `3307` (or your `DB_PORT`) |
-| Units 1–2 User / Pass | `classroom_console` / `console-local-demo` |
-| Units 3–4 Admin User / Pass | `dba_lab` / `dba-local-demo` |
-| TLS Lab User / Pass | `tls_user` / `tls-local-demo` (import `dbms-classroom-ca.pem`) |
-
-### Adminer Login Credentials (Local Classroom Only)
-
-| Field | Value |
-|---|---|
-| System | MySQL |
-| Server | `mariadb` |
-| Username | `root` |
-| Password | `classroom-root` |
-| Database | `college_demo` |
+> **First-time wait:** The very first launch takes **1–3 minutes** while Docker downloads MariaDB and builds the classroom backend. Every launch after that takes ~10 seconds!
 
 ---
 
-## Using the Two Modes
+## Step 4 — Open the Lab in Your Browser
 
-### For Instructors (Classroom Teaching)
-- Switch **Instructor / Student** in the top bar (defaults to **Instructor**); switch themes anytime with **Dark / Paper**.
-- Open **Notes → Pop out speaker window ↗** on your laptop display, then click **Present** in the floating dock so speaker notes never appear on the projector screen.
-- Press **Next →** / **Previous (`←`)** (or arrow keys), press **`M`** for the **Curriculum Drawer**, **`S`** to toggle **Split SQL Studio** (covering all 10 classroom & catalog databases), or **`⌘K`** for instant search, **Exam Cheat Sheet**, **Open Adminer ↗**, and **Reset Current Lab**.
-- Use contextual reset actions inside **SQL Studio** (or **Restore edit copy** / **`⌘K → Reset Current Lab`**) between classes without deleting Docker volumes.
+Once the window prints **`DBMS Classroom Lab (MSCNS406) is ready!`**, open your web browser (Chrome, Edge, Safari, or Firefox) and visit:
 
-### For Students (Self-Practice)
-- Switch to **Student** in the top bar.
-- Press **`S`** (or click **SQL Studio**) anytime to practice across all 10 databases (`college_demo`, `classroom_practice`, `sql_lab`, `security_lab`, `perf_lab`, `ops_lab`, `backup_lab`, `information_schema`, `performance_schema`, `mysql`) with an inline **Schema** drawer and **`Recent…`** query history.
-- On challenge steps, use **Hint 1 / 2** and **✓ Check my answer** to validate your SQL against MariaDB automatically and track completed checkpoints.
+- **Classroom Console (Units 1–4):** <http://localhost:8080>
+- **Adminer (Visual Database Browser):** <http://localhost:8081>
+
+### First-Time Student Walkthrough
+
+1. Click **`Student`** in the top-right corner of the console (hides instructor-only controls and enables practice features).
+2. Move through lessons using **`←`** / **`Next →`** (or your keyboard Left / Right arrow keys).
+3. Press **`M`** (or click the top-left breadcrumb) to open the **Curriculum Drawer** and jump to any unit or topic.
+4. Press **`S`** (or click **`SQL Studio`** in the bottom dock) to open the live MariaDB editor beside the lesson:
+   - Pick any of the **10 classroom and system databases** (`college_demo`, `classroom_practice`, `sql_lab`, `security_lab`, `perf_lab`, `ops_lab`, `backup_lab`, `information_schema`, `performance_schema`, `mysql`) from the dropdown.
+   - Open the inline **Schema** drawer to inspect table columns and types, or click **`Recent…`** to reuse previous queries.
+5. On hands-on challenge steps, use **`Hint 1 / 2`** if you get stuck and click **`✓ Check my answer`** to auto-verify your SQL directly against MariaDB.
+6. Press **`⌘K`** (Mac) or **`Ctrl+K`** (Windows/Linux) anytime to search topics, open the **Exam Cheat Sheet**, launch **Adminer ↗**, toggle **`Dark` / `Paper`** theme, or click **`Reset Current Lab`**.
+
+### Stopping & Restarting Later
+
+- **Closing your browser tab does NOT stop Docker.**
+- **To stop the lab cleanly without losing your work:** Open **Docker Desktop → Containers →** click **Stop** on `dbms-classroom-lab` (or run `docker compose down` inside the folder).
+- **To start again tomorrow:** Open Docker Desktop and double-click **`start.bat`** / **`start.command`** (or run **`sh ./start.sh`**).
+- **Accidentally deleted a table?** Do not worry—press **`⌘K`** (or **`Ctrl+K`**) → **`Reset Current Lab`** (or use **Restore edit copy** / contextual Reset in SQL Studio) to restore fresh sample data in one click.
+
+---
+
+## Step 5 — Connect DBeaver (For Practical Labs & Exams)
+
+If your class or exam uses **DBeaver** alongside the browser console, you can connect DBeaver directly to this same live MariaDB server:
+
+1. Download and install the free **DBeaver Community Edition** from **<https://dbeaver.io/download/>**.
+2. Make sure this Docker lab is already running (`start.bat` / `start.command` / `sh ./start.sh`).
+3. Open **DBeaver** → click the **New Database Connection** icon (plug with a `+` sign, top-left) → select **MariaDB** → click **Next**.
+4. Fill in the connection settings from the table below *(or click **`DBeaver`** in the console top bar for 1-click **Copy** buttons, the TLS `dbms-classroom-ca.pem` certificate, and downloadable `.sql` practice worksheets stored in [`web/worksheets/`](web/worksheets/))*:
+
+   | Setting | Value |
+   |---|---|
+   | **Driver** | `MariaDB` |
+   | **Server Host** | `127.0.0.1` |
+   | **Port** | `3307` *(or your `DB_PORT` from `.env`)* |
+   | **Database** | `sql_lab` *(or any classroom database)* |
+   | **Units 1–2 User / Password** | `classroom_console` / `console-local-demo` |
+   | **Units 3–4 Admin User / Password** | `dba_lab` / `dba-local-demo` |
+   | **TLS Lab User / Password** | `tls_user` / `tls-local-demo` *(import `dbms-classroom-ca.pem` in SSL tab)* |
+
+5. Click **Test Connection** at the bottom-left.
+   - If DBeaver prompts **"Download Driver Files"**, click **Download**.
+   - Once **Connected** appears, click **OK** → **Finish**.
+
+### Adminer Login Credentials (Optional Web DB UI at <http://localhost:8081>)
+
+| Field | Value |
+|---|---|
+| **System** | `MySQL` |
+| **Server** | `mariadb` |
+| **Username** | `root` |
+| **Password** | `classroom-root` |
+| **Database** | `college_demo` |
+
+---
+
+## Common Issues & Quick Fixes
+
+| Problem | What to do |
+|---|---|
+| **"Docker is not running" / daemon error** | Open **Docker Desktop**, wait until the bottom-left says **`Engine running`**, then run `start.bat` / `start.command` / `sh ./start.sh` again. |
+| **Windows asks about WSL 2 or Virtualization** | Open PowerShell as Administrator, run `wsl --install`, and restart your PC. If Docker still reports virtualization disabled, enable **Intel VT-x** / **AMD-V (SVM)** in BIOS/UEFI settings. |
+| **macOS blocks `start.command` or says "Permission denied"** | This happens because macOS flags downloaded `.zip` files. Open **Terminal**, `cd` into the unzipped folder, and run `sh ./start.sh` instead (or right-click `start.command` → **Open**). |
+| **Port `8080`, `8081`, or `3307` is already in use** | Copy `.env.example` to `.env`, change `CONSOLE_PORT`, `ADMINER_PORT`, or `DB_PORT` (for example `CONSOLE_PORT=8090`), save, and run the launcher again. |
+| **Browser says "This site can't be reached"** | Wait until the terminal/command window finishes and prints **`DBMS Classroom Lab (MSCNS406) is ready!`**, then refresh `http://localhost:8080`. |
+| **I messed up a table or forgot where `DROP` ran** | Press **`⌘K`** (or **`Ctrl+K`**) in the console → **`Reset Current Lab`**. All sample data and accounts restore cleanly without reinstalling Docker. |
+
+---
+
+## For Instructors (Classroom Teaching Mode)
+
+- Leave the top-bar toggle on **`Instructor`** (default); switch themes anytime between **`Paper`** and **`Dark`**.
+- Click **`Notes → Pop out speaker window ↗`** onto your laptop screen, then click **`Present`** in the floating dock so teacher notes never show on the classroom projector.
+- Navigate via **`←` / `Next →`**, open the **Curriculum Drawer** (`M`), toggle **Split SQL Studio** (`S`) across all 10 unit and system-catalog databases, or use **`⌘K`** for instant search, **Exam Cheat Sheet**, **Open Adminer ↗**, and **Reset Current Lab** between sections.
 
 ---
 
