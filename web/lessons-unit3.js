@@ -15,6 +15,15 @@ COURSE.sections.push(
         database: 'security_lab',
         resetKind: 'unit3',
         sql: 'SHOW DATABASES;',
+        explain: {
+          syntax: 'CREATE DATABASE db;  USE db;  SHOW TABLES;\nCREATE/ALTER/DROP TABLE ...;  DROP DATABASE db;',
+          parts: [
+            ['SHOW DATABASES / SHOW TABLES', 'Lists available schemas on the server, or tables inside the currently active database.'],
+            ['CREATE DATABASE / USE db', 'Creates a new schema container and switches this persistent session’s active context to it.'],
+            ['CREATE / INSERT / ALTER / SELECT / DELETE', 'Builds demo_items, populates rows, adds a column, reads rows, and removes a row inside demo_scratch.'],
+            ['DROP TABLE / DROP DATABASE', 'Permanently removes the table and then the entire demo_scratch schema container.']
+          ]
+        },
         presets: [
           ['1. List databases', 'SHOW DATABASES;'],
           ['2. Create database', 'CREATE DATABASE IF NOT EXISTS demo_scratch;'],
@@ -58,6 +67,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'college_demo',
         sql: 'SELECT USER() AS client_sent, CURRENT_USER() AS matched_account, CONNECTION_ID() AS conn_id, DATABASE() AS active_db, @@port AS server_port, @@bind_address AS bind_addr, @@max_connections AS max_conns;',
+        explain: {
+          syntax: 'SELECT USER(), CURRENT_USER(), CONNECTION_ID(), DATABASE(), @@variable;\nSHOW GLOBAL STATUS / VARIABLES WHERE ...;',
+          parts: [
+            ['USER() vs CURRENT_USER()', 'USER() reports the username + client host you sent; CURRENT_USER() reports the mysql.user rule MariaDB matched to authorize you.'],
+            ['@@port / @@bind_address / @@max_connections', 'The @@ prefix reads live system variables directly inside a SELECT expression.'],
+            ['SHOW GLOBAL STATUS / VARIABLES', 'Inspects live connection thread counters (Threads_connected, Aborted_connects) and socket timeout limits.']
+          ]
+        },
         presets: [
           ['Connection & identity', 'SELECT USER() AS client_sent, CURRENT_USER() AS matched_account, CONNECTION_ID() AS conn_id, DATABASE() AS active_db, @@port AS server_port, @@bind_address AS bind_addr, @@max_connections AS max_conns;'],
           ['Thread counters', "SHOW GLOBAL STATUS WHERE Variable_name IN ('Threads_connected','Threads_running','Max_used_connections','Aborted_connects');"],
@@ -98,6 +115,13 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'college_demo',
         sql: 'SHOW ENGINES;',
+        explain: {
+          syntax: 'SHOW ENGINES;',
+          parts: [
+            ['SHOW ENGINES', 'Lists every storage engine compiled or loaded in MariaDB along with its support status.'],
+            ['Support / Transactions / Savepoints', 'Identifies which engine is DEFAULT (InnoDB) and whether each engine supports ACID transactions and savepoints.']
+          ]
+        },
         expected: 'InnoDB is DEFAULT with Transactions=YES, XA=YES, Savepoints=YES; Aria, MEMORY, and CSV serve specialized roles.',
         question: 'Why does InnoDB serve as the default engine instead of MEMORY or MyISAM/Aria?',
         answer: 'InnoDB supports full ACID transactions, row-level locking, foreign key enforcement, MVCC snapshots, and crash recovery via redo/undo logs.',
@@ -130,6 +154,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'information_schema',
         sql: "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('datadir','innodb_file_per_table','innodb_page_size','innodb_data_file_path','innodb_doublewrite','innodb_log_file_size','innodb_flush_log_at_trx_commit');",
+        explain: {
+          syntax: "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('var1', 'var2', ...);",
+          parts: [
+            ['SHOW GLOBAL VARIABLES', 'Reads active server-wide InnoDB configuration parameters currently loaded from classroom.cnf / defaults.'],
+            ['innodb_file_per_table & innodb_page_size', 'Controls whether each table gets its own .ibd file and confirms the 16 KB (16384 byte) B+Tree page size.'],
+            ['innodb_doublewrite & flush_log_at_trx_commit', 'Verifies torn-page crash protection and whether every COMMIT fsyncs the redo log immediately (1 = full ACID).']
+          ]
+        },
         expected: 'Shows /var/lib/mysql/, innodb_file_per_table=ON, innodb_page_size=16384 (16 KB), doublewrite=ON, redo log file size, and flush_log_at_trx_commit=1.',
         question: 'What trade-off happens if someone changes innodb_flush_log_at_trx_commit from 1 to 2 or 0?',
         answer: '1 flushes and fsyncs redo log on every COMMIT (full ACID durability); 0/2 improve throughput slightly at the risk of losing up to ~1 second of commits in an OS crash.',
@@ -182,6 +214,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'information_schema',
         sql: "SELECT\n  MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_read_requests' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS logical_reads,\n  MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_reads' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS physical_disk_reads,\n  ROUND((1 - MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_reads' THEN VARIABLE_VALUE END) /\n    GREATEST(MAX(CASE WHEN VARIABLE_NAME = 'Innodb_buffer_pool_read_requests' THEN VARIABLE_VALUE END), 1)) * 100, 3) AS buffer_hit_pct\nFROM information_schema.GLOBAL_STATUS\nWHERE VARIABLE_NAME IN ('Innodb_buffer_pool_read_requests', 'Innodb_buffer_pool_reads');",
+        explain: {
+          syntax: 'SELECT ... FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN (...);',
+          parts: [
+            ['information_schema.GLOBAL_STATUS', 'Exposes server status counters as a queryable table so you can compute ratios directly in SQL.'],
+            ['Innodb_buffer_pool_read_requests vs reads', 'read_requests counts total logical page lookups; reads counts cache misses that had to hit physical disk.'],
+            ['(1 - disk_reads / logical_reads) * 100', 'Computes the Buffer Pool Hit Ratio percentage (GREATEST(..., 1) prevents division by zero).']
+          ]
+        },
         presets: [
           ['Buffer pool hit ratio', "SELECT MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_read_requests' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS logical_reads, MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_reads' THEN CAST(VARIABLE_VALUE AS UNSIGNED) END) AS physical_disk_reads, ROUND((1 - MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_reads' THEN VARIABLE_VALUE END)/GREATEST(MAX(CASE WHEN VARIABLE_NAME='Innodb_buffer_pool_read_requests' THEN VARIABLE_VALUE END),1))*100,3) AS buffer_hit_pct FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN ('Innodb_buffer_pool_read_requests','Innodb_buffer_pool_reads');"],
           ['Memory & cache variables', "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('innodb_buffer_pool_size','innodb_log_buffer_size','table_open_cache','thread_cache_size','sort_buffer_size','join_buffer_size');"]
@@ -213,6 +253,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'information_schema',
         sql: "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS, ROUND((DATA_LENGTH + INDEX_LENGTH)/1024, 1) AS total_kb\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab')\nORDER BY TABLE_SCHEMA, TABLE_NAME;",
+        explain: {
+          syntax: 'SELECT ... FROM information_schema.TABLES | KEY_COLUMN_USAGE | COLUMNS;\nSELECT ... FROM mysql.user;',
+          parts: [
+            ['information_schema.TABLES', 'Reports every table’s schema, storage engine, estimated row count, and byte footprint.'],
+            ['KEY_COLUMN_USAGE & COLUMNS', 'Audits foreign-key links (REFERENCED_TABLE_NAME) and column types/nullability across any schema.'],
+            ['mysql.user', 'Lists registered MariaDB accounts, host patterns, authentication plugins, roles, and SSL requirements.']
+          ]
+        },
         presets: [
           ['Tables & sizes', "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS, ROUND((DATA_LENGTH + INDEX_LENGTH)/1024, 1) AS total_kb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab') ORDER BY TABLE_SCHEMA, TABLE_NAME;"],
           ['Foreign key audit', "SELECT TABLE_SCHEMA, TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_SCHEMA IN ('college_demo','sql_lab') ORDER BY TABLE_SCHEMA, TABLE_NAME;"],
@@ -269,6 +317,14 @@ COURSE.sections.push(
         database: 'security_lab',
         resetKind: 'unit3',
         sql: "CREATE ROLE IF NOT EXISTS 'role_reader';",
+        explain: {
+          syntax: "CREATE ROLE 'role_name';  GRANT priv ON db.* TO 'role_name';\nCREATE USER 'u'@'host' IDENTIFIED BY 'pw';\nGRANT 'role_name' TO 'u'@'host';  SET DEFAULT ROLE 'role_name' FOR 'u'@'host';",
+          parts: [
+            ['CREATE ROLE / GRANT ... TO role', 'Creates a reusable named permission bundle and assigns table/DB privileges to it.'],
+            ['CREATE USER ... IDENTIFIED BY', 'Creates a new login account restricted to the specified host pattern and password.'],
+            ['SET DEFAULT ROLE / SET ROLE', 'Automatically enables the role on login (SET DEFAULT ROLE) or activates a role inside the current session (SET ROLE).']
+          ]
+        },
         presets: [
           ['1. Create role', "CREATE ROLE IF NOT EXISTS 'role_reader';"],
           ['2. Grant SELECT to role', "GRANT SELECT ON security_lab.* TO 'role_reader';"],
@@ -293,6 +349,14 @@ COURSE.sections.push(
         database: 'mysql',
         resetKind: 'unit3',
         sql: "SELECT PLUGIN_NAME, PLUGIN_STATUS, PLUGIN_LIBRARY FROM information_schema.PLUGINS WHERE PLUGIN_TYPE = 'AUTHENTICATION' ORDER BY PLUGIN_NAME;",
+        explain: {
+          syntax: "CREATE USER 'user'@'host' IDENTIFIED VIA plugin_name USING PASSWORD('secret');",
+          parts: [
+            ['information_schema.PLUGINS', 'Lists all active authentication plugins installed on this MariaDB server.'],
+            ['IDENTIFIED VIA ed25519', 'Tells MariaDB to authenticate this account with the elliptic-curve ed25519 plugin instead of legacy SHA1.'],
+            ["USING PASSWORD('...')", 'Hashes/derives the stored authentication verifier safely on the server side.']
+          ]
+        },
         presets: [
           ['1. List auth plugins', "SELECT PLUGIN_NAME, PLUGIN_STATUS, PLUGIN_LIBRARY FROM information_schema.PLUGINS WHERE PLUGIN_TYPE = 'AUTHENTICATION' ORDER BY PLUGIN_NAME;"],
           ['2. Create ed25519 user', "CREATE USER IF NOT EXISTS 'ed_user'@'%' IDENTIFIED VIA ed25519 USING PASSWORD('StrongEd#2026');"],
@@ -377,6 +441,14 @@ COURSE.sections.push(
         database: 'security_lab',
         resetKind: 'unit3',
         sql: "CREATE USER IF NOT EXISTS 'intern'@'%' IDENTIFIED BY 'Intern#2026';",
+        explain: {
+          syntax: "GRANT priv ON db.table TO 'user'@'host';\nREVOKE priv ON db.table FROM 'user'@'host';\nSHOW GRANTS FOR 'user'@'host';",
+          parts: [
+            ['GRANT ... TO', 'Adds the specified privilege(s) on a database or single table to an existing user.'],
+            ['REVOKE ... FROM', 'Removes only the named privilege(s) while leaving all other privileges intact.'],
+            ['SHOW GRANTS / DROP USER', 'Displays the account’s exact effective grants, and DROP USER removes the account cleanly when finished.']
+          ]
+        },
         presets: [
           ['1. Create intern', "CREATE USER IF NOT EXISTS 'intern'@'%' IDENTIFIED BY 'Intern#2026';"],
           ['2. Grant SELECT', "GRANT SELECT ON security_lab.course_records TO 'intern'@'%';"],
@@ -485,6 +557,14 @@ COURSE.sections.push(
         tlsToggle: true,
         useTls: false,
         sql: "SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_cipher', 'Ssl_version');",
+        explain: {
+          syntax: "SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_cipher', 'Ssl_version');",
+          parts: [
+            ['SHOW SESSION STATUS', 'Inspects status metrics for THIS connection only (not global server totals).'],
+            ['Ssl_cipher & Ssl_version', 'Proves whether the active socket is encrypted (e.g. TLSv1.3 / TLS_AES_256_GCM_SHA384) or blank when plaintext.'],
+            ['REQUIRE SSL (on tls_user)', 'Causes MariaDB to reject non-TLS logins immediately with Access Denied (1045).']
+          ]
+        },
         presets: [
           ['Check TLS cipher', "SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_cipher', 'Ssl_version');"],
           ['Read protected records', 'SELECT id, title, classification FROM course_records ORDER BY id;']
@@ -503,6 +583,14 @@ COURSE.sections.push(
         database: 'security_lab',
         resetKind: 'unit3',
         sql: "INSTALL PLUGIN IF NOT EXISTS simple_password_check SONAME 'simple_password_check';",
+        explain: {
+          syntax: "INSTALL PLUGIN IF NOT EXISTS name SONAME 'lib';\nALTER USER 'u'@'host' ACCOUNT LOCK | UNLOCK | PASSWORD EXPIRE INTERVAL N DAY;",
+          parts: [
+            ['INSTALL PLUGIN ... SONAME', 'Dynamically loads the simple_password_check password-strength validator into the running MariaDB server.'],
+            ['PASSWORD EXPIRE INTERVAL 90 DAY', 'Forces the account to rotate its password automatically every 90 days.'],
+            ['ACCOUNT LOCK / WITH MAX_QUERIES_PER_HOUR', 'Suspends logins without dropping grants, and caps query/connection quotas per account.']
+          ]
+        },
         presets: [
           ['1. Install password plugin', "INSTALL PLUGIN IF NOT EXISTS simple_password_check SONAME 'simple_password_check';"],
           ['2. Inspect policy variables', "SHOW GLOBAL VARIABLES LIKE 'simple_password_check%';"],

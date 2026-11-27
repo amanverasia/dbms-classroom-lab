@@ -41,6 +41,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT * FROM students ORDER BY id;',
+        explain: {
+          syntax: 'SELECT * FROM table_name ORDER BY column_name;',
+          parts: [
+            ['SELECT *', 'Reads every column stored in the table (* means "all columns").'],
+            ['FROM students', 'Names the table in sql_lab to read rows from.'],
+            ['ORDER BY id', 'Sorts the output rows in ascending order of id (1, 2, 3…) instead of arbitrary storage order.']
+          ]
+        },
         expected: 'Six students including Dev (id 6) with NULL age and city.',
         question: 'Click through all four presets. Comparing students and enrollments by ID, which two students have not enrolled in any course yet, and which student has NULL values?',
         answer: 'Meera (id 4) and Dev (id 6) have no matching rows in enrollments, and Dev (id 6) has NULL for both age and city. Notice Cloud Security (id 104) also has zero enrollments.',
@@ -77,6 +85,15 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'CREATE TABLE course_notes (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  course_id INT NOT NULL,\n  note VARCHAR(200) NOT NULL,\n  created_on DATE NOT NULL,\n  FOREIGN KEY (course_id) REFERENCES courses(id)\n);',
+        explain: {
+          syntax: 'CREATE TABLE table_name (\n  col1 TYPE PRIMARY KEY AUTO_INCREMENT,\n  col2 TYPE NOT NULL,\n  FOREIGN KEY (col2) REFERENCES parent_table(parent_pk)\n);',
+          parts: [
+            ['CREATE TABLE course_notes', 'Creates a brand-new empty table named course_notes inside sql_lab.'],
+            ['INT PRIMARY KEY AUTO_INCREMENT', 'Creates an integer ID column that uniquely identifies each row and auto-numbers 1, 2, 3…'],
+            ['VARCHAR(200) / DATE NOT NULL', 'Defines required variable-length text (max 200 chars) and calendar date columns that cannot be left NULL.'],
+            ['FOREIGN KEY (course_id) REFERENCES courses(id)', 'Links course_id to courses(id) so MariaDB rejects notes referencing a nonexistent course.']
+          ]
+        },
         expected: 'Table created empty. Re-running without Reset Unit 2 reports Error 1050 (table already exists).',
         question: 'Why store course_id INT instead of duplicating the course name text?',
         answer: 'Referencing courses(id) guarantees valid courses and prevents inconsistent course spellings.',
@@ -91,6 +108,15 @@ COURSE.sections.push(
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
         sql: 'ALTER TABLE course_notes\nADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 1 CHECK (priority >= 1 AND priority <= 3);',
+        explain: {
+          syntax: 'ALTER TABLE tbl ADD COLUMN col TYPE ...;\nALTER TABLE tbl MODIFY COLUMN col NEW_TYPE ...;\nALTER TABLE tbl DROP COLUMN col;',
+          parts: [
+            ['ALTER TABLE course_notes', 'Modifies the column blueprint of an existing table without dropping its rows.'],
+            ['ADD COLUMN IF NOT EXISTS ... DEFAULT 1', 'Appends a new priority column safely (skipping if already present) and sets default value 1.'],
+            ['MODIFY COLUMN note VARCHAR(400)', 'Changes an existing column’s data type, length, or NULL rule in place.'],
+            ['DROP COLUMN IF EXISTS priority', 'Permanently removes the priority column and its stored values from the table definition.']
+          ]
+        },
         expected: 'Adds priority INT DEFAULT 1. Run Presets 1 -> 2 -> 3 in order and click Inspect after each change.',
         question: 'Does ALTER TABLE ADD COLUMN insert new rows into course_notes?',
         answer: 'No. It alters the table schema and assigns the DEFAULT value to existing rows (if any).',
@@ -128,6 +154,14 @@ COURSE.sections.push(
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
         sql: "INSERT INTO course_notes (course_id, note, created_on) VALUES (101, 'Check firewall lab', '2026-08-01');",
+        explain: {
+          syntax: 'TRUNCATE TABLE table_name;\nDROP TABLE [IF EXISTS] table_name;',
+          parts: [
+            ['INSERT INTO course_notes ...', 'Adds one sample note row so you can observe TRUNCATE emptying the table.'],
+            ['TRUNCATE TABLE course_notes', 'Removes every row at once and resets AUTO_INCREMENT to 1 while keeping the empty table structure.'],
+            ['DROP TABLE IF EXISTS course_notes', 'Deletes both the rows and the table definition completely (IF EXISTS avoids an error if already dropped).']
+          ]
+        },
         presets: [
           ['1. Seed a note', "INSERT INTO course_notes (course_id, note, created_on) VALUES (101, 'Check firewall lab', '2026-08-01');"],
           ['2. TRUNCATE rows', 'TRUNCATE TABLE course_notes;'],
@@ -147,6 +181,14 @@ COURSE.sections.push(
         database: 'college_demo',
         persona: 'dba_lab',
         sql: "SHOW GRANTS FOR 'reporting'@'%';",
+        explain: {
+          syntax: "SHOW GRANTS FOR 'user'@'host';\nGRANT priv ON db.tbl TO 'user'@'host';\nREVOKE priv ON db.tbl FROM 'user'@'host';",
+          parts: [
+            ["SHOW GRANTS FOR 'user'@'host'", 'Displays the exact permission rules currently assigned to that MariaDB account.'],
+            ['GRANT ... ON db.* TO', 'Grants specific actions (like SELECT or INSERT) on a database or single table to an account.'],
+            ['REVOKE ... ON db.* FROM', 'Removes previously granted actions from an account without deleting the account itself.']
+          ]
+        },
         presets: [
           ['Reporting grants', "SHOW GRANTS FOR 'reporting'@'%';"],
           ['Web app grants', "SHOW GRANTS FOR 'web_app'@'%';"],
@@ -206,6 +248,14 @@ COURSE.sections.push(
         editCopy: true,
         prepare: 'reset-edit-copy',
         sql: "INSERT INTO student_edits (name, email, age, city, joined_on)\nVALUES ('Arun', 'arun.sql@example.com', 21, 'Pune', '2026-08-12');",
+        explain: {
+          syntax: "INSERT INTO table_name (col1, col2, ...) VALUES (val1, val2, ...);",
+          parts: [
+            ['INSERT INTO student_edits (...)', 'Adds a new row into student_edits and explicitly lists the column order you are providing.'],
+            ['Omitting id', 'Safe because id is AUTO_INCREMENT, so MariaDB automatically generates id = 7.'],
+            ['VALUES (...)', 'Supplies each column’s value in the exact same order (strings and dates in single quotes, numbers unquoted).']
+          ]
+        },
         expected: '1 row affected; id 7 is auto-generated while students remains untouched.',
         question: 'Why will clicking Run a second time fail immediately?',
         answer: 'The email column has a UNIQUE constraint, so inserting arun.sql@example.com again throws Error 1062.',
@@ -221,6 +271,14 @@ COURSE.sections.push(
         editCopy: true,
         prepare: 'reset-edit-copy',
         sql: 'SELECT id, name, city FROM student_edits WHERE id = 2;',
+        explain: {
+          syntax: "UPDATE table_name SET col1 = new_val WHERE condition;",
+          parts: [
+            ['SELECT ... WHERE id = 2', 'Previews the exact target row(s) BEFORE changing anything—a crucial DBA safety habit.'],
+            ['UPDATE student_edits SET city = \'Pune\'', 'Modifies the city column on matching rows without touching other columns.'],
+            ['WHERE id = 2', 'Restricts the update to Riya’s row only—omitting WHERE would overwrite every student’s city!']
+          ]
+        },
         expected: 'Preview finds Riya (id 2). Updating sets her city to Pune.',
         question: 'Why filter by id = 2 instead of name = "Riya"?',
         answer: 'Primary key id uniquely identifies one row even if two students share the same first name.',
@@ -241,6 +299,13 @@ COURSE.sections.push(
         editCopy: true,
         prepare: 'reset-edit-copy',
         sql: 'DELETE FROM student_edits WHERE id = 6;',
+        explain: {
+          syntax: 'DELETE FROM table_name WHERE condition;',
+          parts: [
+            ['DELETE FROM student_edits', 'Removes whole rows from student_edits while leaving the table structure and constraints intact.'],
+            ['WHERE id = 6', 'Targets only Dev’s primary key row so the other 5 students remain untouched.']
+          ]
+        },
         expected: '1 row affected when Dev is present; source students table still retains Dev.',
         question: 'Does DELETE FROM student_edits WHERE id = 6 drop the table schema?',
         answer: 'No. DELETE only removes matching tuples while keeping columns and constraints intact.',
@@ -256,6 +321,13 @@ COURSE.sections.push(
         editCopy: true,
         prepare: 'reset-edit-copy',
         sql: 'DELETE FROM student_edits;',
+        explain: {
+          syntax: 'DELETE FROM table_name;  /* NO WHERE = deletes EVERY row! */',
+          parts: [
+            ['DELETE FROM student_edits;', 'Valid SQL with no confirmation prompt—without a WHERE filter, every row in the table is erased immediately.'],
+            ['Restore edit copy', 'Recovers all 6 baseline rows in student_edits from the untouched students table.']
+          ]
+        },
         expected: 'Every row is deleted. Click "Restore edit copy" afterward to restore all 6 baseline rows.',
         question: 'Can you still run SELECT * FROM student_edits after deleting every row?',
         answer: 'Yes. It returns 0 rows with all column headers still intact.',
@@ -271,6 +343,14 @@ COURSE.sections.push(
         editCopy: true,
         prepare: 'reset-edit-copy',
         sql: "INSERT INTO student_edits (id,name,email,age,city,joined_on)\nVALUES (1,'PK Collision','pk.collision@example.com',24,'Delhi','2026-08-01');",
+        explain: {
+          syntax: 'INSERT INTO ... VALUES (...);  /* Blocked by declared constraints */',
+          parts: [
+            ['Error 1062 (PK / UNIQUE)', 'Triggered when an INSERT duplicates an existing PRIMARY KEY id or UNIQUE email.'],
+            ['Error 4025 (CHECK) & 1048 (NOT NULL)', '4025 rejects age = 12 (fails age >= 16); 1048 rejects NULL in the NOT NULL name column.'],
+            ['Error 1452 (FOREIGN KEY)', 'Rejects inserting student_id = 999 into enrollments because no parent student 999 exists.']
+          ]
+        },
         expected: 'Every preset fails with a specific MariaDB error code enforcing its declared constraint.',
         question: 'Why does PK Collision fail with Error 1062 when student_edits has id = 1?',
         answer: 'id = 1 already exists in student_edits, so PRIMARY KEY rejects the duplicate key.',
@@ -323,6 +403,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT name, age FROM students ORDER BY id;',
+        explain: {
+          syntax: 'SELECT [DISTINCT] col1, col2 FROM table_name ORDER BY col;',
+          parts: [
+            ['SELECT name, age', 'Projection: returns only the columns you name instead of every column in the table.'],
+            ['SELECT DISTINCT city', 'Eliminates duplicate city values from the output so each unique city (plus at most one NULL) appears once.'],
+            ['ORDER BY ...', 'Sorts the projected rows predictably (NULL sorts first in ascending order in MariaDB).']
+          ]
+        },
         expected: 'Six rows with two columns; Dev shows NULL age. DISTINCT city collapses repeats into 4 rows.',
         question: 'How does SELECT DISTINCT treat multiple NULL cities if there were two Dev-like rows?',
         answer: 'DISTINCT groups all NULLs into a single NULL output entry.',
@@ -358,6 +446,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, city, age\nFROM students\nWHERE (city = 'Mumbai' OR city = 'Delhi') AND age > 20\nORDER BY id;",
+        explain: {
+          syntax: 'SELECT ... FROM tbl WHERE (cond1 OR cond2) AND cond3;',
+          parts: [
+            ['AND / OR', 'Combines boolean conditions: AND requires both sides true; OR requires at least one side true.'],
+            ['( ... ) parentheses', 'Forces the OR check to evaluate first; without parentheses, SQL evaluates AND before OR.'],
+            ['WHERE', 'Evaluates the combined condition row-by-row and keeps only rows where the result is TRUE.']
+          ]
+        },
         expected: 'With parentheses: 3 rows (Aman, Kabir, Zoya). Without parentheses: 4 rows (pulls in Riya, age 19, from Mumbai!).',
         question: 'Why did removing the parentheses add Riya (Mumbai, age 19) even though age > 20 was written?',
         answer: 'AND evaluates before OR, so MariaDB parsed it as: city = "Mumbai" OR (city = "Delhi" AND age > 20), matching every Mumbai student regardless of age.',
@@ -375,6 +471,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, city FROM students\nWHERE city IN ('Delhi', 'Kochi') ORDER BY id;",
+        explain: {
+          syntax: "WHERE col IN (v1, v2, ...)\nWHERE col BETWEEN low AND high\nWHERE col NOT IN (v1, v2)",
+          parts: [
+            ["IN ('Delhi', 'Kochi')", 'Shorthand for city = \'Delhi\' OR city = \'Kochi\'—checks if a value matches any item in the list.'],
+            ['BETWEEN 20 AND 23', 'Matches an inclusive closed range (age >= 20 AND age <= 23), including both endpoints 20 and 23.'],
+            ['NOT IN (20, NULL)', 'Expands to age <> 20 AND age <> NULL; because anything <> NULL is UNKNOWN, the entire filter drops every row!']
+          ]
+        },
         expected: 'IN returns 3 students (Aman, Kabir in Delhi; Meera in Kochi). BETWEEN returns 3 ages (20–23). NOT IN (20, NULL) returns 0 rows!',
         question: 'Why does age NOT IN (20, NULL) return zero rows—even for Aman whose age is 25?',
         answer: 'NOT IN (20, NULL) means (age <> 20 AND age <> NULL). Because 25 <> NULL evaluates to UNKNOWN, the AND becomes UNKNOWN and WHERE drops every row.',
@@ -393,6 +497,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name FROM students WHERE name LIKE 'a%' ORDER BY name;",
+        explain: {
+          syntax: "SELECT ... FROM tbl WHERE col LIKE 'pattern';",
+          parts: [
+            ['LIKE', 'Matches text strings against a wildcard pattern instead of requiring an exact = match.'],
+            ['% wildcard', 'Matches zero, one, or many characters (\'a%\' = starts with a; \'%a%\' = contains a anywhere).'],
+            ['_ wildcard', 'Matches exactly one single character (\'___\' = any name with exactly 3 characters).']
+          ]
+        },
         expected: '"a%" matches Aman (case-insensitive); "%a%" matches 5 names; "___" matches 3-letter names (Dev).',
         question: 'Why does LIKE "a%" match "Aman" even though A is uppercase?',
         answer: 'Because the column collation uses case-insensitive (_ci) matching. Use LIKE BINARY or a _cs collation when case matters.',
@@ -411,6 +523,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT id, name, age, city FROM students WHERE age IS NULL ORDER BY id;',
+        explain: {
+          syntax: 'WHERE col IS NULL\nWHERE col IS NOT NULL',
+          parts: [
+            ['IS NULL', 'The only correct SQL predicate to find rows where a column value is missing (NULL).'],
+            ['= NULL (pitfall)', 'Never matches anything because comparing with NULL evaluates to UNKNOWN, not TRUE.'],
+            ['IS NOT NULL', 'Keeps only rows that have a known (non-missing) value in that column.']
+          ]
+        },
         expected: 'IS NULL returns Dev; age = NULL returns zero rows.',
         question: 'Why did WHERE age = NULL return an empty table rather than an error?',
         answer: 'It is valid syntax, but age = NULL yields UNKNOWN rather than TRUE for every row.',
@@ -429,6 +549,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT name, age FROM students\nWHERE age IS NOT NULL\nORDER BY age DESC, id ASC LIMIT 3;',
+        explain: {
+          syntax: 'SELECT ... FROM tbl ORDER BY col1 DESC, col2 ASC LIMIT N;',
+          parts: [
+            ['ORDER BY age DESC, id ASC', 'Sorts primarily by oldest age first (DESC), then breaks any ties cleanly by smallest id (ASC).'],
+            ['LIMIT 3', 'Slices and returns only the first 3 rows after sorting finishes.']
+          ]
+        },
         expected: 'Aman (25), Zoya (23), Kabir (22).',
         question: 'Why include id ASC as a second sort key if ages are all unique today?',
         answer: 'As soon as two students share an age, LIMIT without a unique tie-breaker produces arbitrary order across queries.',
@@ -442,6 +569,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, age,\n CASE WHEN age IS NULL THEN 'Unknown'\n      WHEN age >= 21 THEN '21 or older'\n      ELSE 'Under 21' END AS age_band\nFROM students ORDER BY id;",
+        explain: {
+          syntax: "CASE WHEN cond1 THEN val1 WHEN cond2 THEN val2 ELSE fallback END AS alias",
+          parts: [
+            ['CASE WHEN ... THEN ...', 'Works like an if / else-if expression inside SELECT, returning the first branch whose condition is TRUE.'],
+            ['ELSE ... END AS age_band', 'Provides the fallback value when no earlier WHEN matches, closes with END, and names the output column age_band.']
+          ]
+        },
         expected: '6 rows with age_band labels; Dev cleanly displays Unknown instead of falling into ELSE.',
         question: 'What would Dev be labeled if we removed the WHEN age IS NULL branch?',
         answer: 'NULL >= 21 evaluates to UNKNOWN, so Dev would falsely fall into ELSE "Under 21"!',
@@ -514,6 +648,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT COUNT(*) AS enrollments, COUNT(score) AS graded,\n ROUND(AVG(score),2) AS mean_score, MIN(score) AS lowest, MAX(score) AS highest\nFROM enrollments;',
+        explain: {
+          syntax: 'SELECT COUNT(*), COUNT(col), AVG(col), MIN(col), MAX(col) FROM table_name;',
+          parts: [
+            ['COUNT(*) vs COUNT(score)', 'COUNT(*) counts every row (including NULLs); COUNT(score) counts only rows where score is NOT NULL.'],
+            ['AVG / MIN / MAX', 'Compute the average, smallest, and largest non-NULL values across all matching rows.'],
+            ['ROUND(expr, 2)', 'Rounds the numeric average cleanly to 2 decimal places.']
+          ]
+        },
         expected: '5 enrollments, 4 graded scores, mean 80.25 ((88+92+76+65)/4), min 65, max 92.',
         question: 'Does AVG(score) divide the sum by 5 enrollments or 4 non-NULL scores?',
         answer: 'It divides by 4 non-NULL scores. Including NULL as zero would lower the average to 64.20.',
@@ -528,6 +670,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT COUNT(*) AS payments, SUM(amount) AS total,\n ROUND(AVG(amount),2) AS mean_payment\nFROM payments;',
+        explain: {
+          syntax: 'SELECT COUNT(*), SUM(col), AVG(col) FROM table_name;',
+          parts: [
+            ['SUM(amount)', 'Adds up all non-NULL amount values across the entire table into a single total.'],
+            ['AVG(amount)', 'Divides SUM(amount) by the number of payment rows (installments), not the number of distinct students.']
+          ]
+        },
         expected: '5 payment rows totaling 13,000.00; average per installment = 2,600.00.',
         question: 'Is 2,600 the average total paid per student?',
         answer: 'No. 2,600 is the mean per payment installment (13,000 / 5 payments), not per student (the 4 paying students average 3,250 each—use GROUP BY student_id for per-student totals).',
@@ -542,6 +691,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT city, COUNT(*) AS students\nFROM students GROUP BY city ORDER BY city;',
+        explain: {
+          syntax: 'SELECT group_col, COUNT(*) FROM tbl GROUP BY group_col;\nSELECT COUNT(DISTINCT col) FROM tbl;',
+          parts: [
+            ['GROUP BY city', 'Buckets rows sharing the same city value into one summary row per city (with all NULLs grouped into one NULL bucket).'],
+            ['COUNT(DISTINCT city)', 'Counts how many unique non-NULL city values exist across the table (ignores duplicates and NULL).']
+          ]
+        },
         expected: 'NULL: 1, Delhi: 2, Kochi: 1, Mumbai: 2 (4 rows). COUNT(DISTINCT city) returns 3 non-NULL cities.',
         question: 'With ONLY_FULL_GROUP_BY enabled, why can you not add ungrouped name to SELECT city, name, COUNT(*) ... GROUP BY city?',
         answer: 'Delhi has two students (Aman and Kabir). Picking one name arbitrarily for a single group row is ambiguous, so strict SQL rejects it (Error 1055).',
@@ -559,6 +715,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT city, COUNT(*) AS students\nFROM students WHERE city IS NOT NULL\nGROUP BY city HAVING COUNT(*) >= 2 ORDER BY city;',
+        explain: {
+          syntax: 'SELECT group_col, agg(col) FROM tbl WHERE row_cond GROUP BY group_col HAVING group_cond;',
+          parts: [
+            ['WHERE city IS NOT NULL', 'Runs BEFORE GROUP BY to drop individual rows with missing cities first.'],
+            ['GROUP BY city', 'Combines the remaining rows into one bucket per city and computes COUNT(*).'],
+            ['HAVING COUNT(*) >= 2', 'Runs AFTER GROUP BY to filter finished group summaries using aggregate results.']
+          ]
+        },
         expected: 'Delhi (2) and Mumbai (2).',
         question: 'In what logical order does SQL evaluate FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY?',
         answer: 'FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY -> LIMIT.',
@@ -624,6 +788,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.id, s.name, e.course_id\nFROM students s INNER JOIN enrollments e ON e.student_id = s.id\nORDER BY s.id, e.course_id;',
+        explain: {
+          syntax: 'SELECT a.col, b.col FROM left_tbl a INNER JOIN right_tbl b ON b.fk = a.pk;',
+          parts: [
+            ['students s / enrollments e', 'Short table aliases (s and e) let you qualify column names cleanly when joining tables.'],
+            ['INNER JOIN', 'Combines rows from both tables and keeps ONLY pairs where the ON rule matches (unmatched rows are dropped).'],
+            ['ON e.student_id = s.id', 'Specifies how rows in enrollments match rows in students.']
+          ]
+        },
         expected: '5 rows: Aman twice, Riya, Kabir, Zoya.',
         question: 'Why does Aman appear on two rows instead of one?',
         answer: 'A join emits one output row per matching pair of input rows.',
@@ -637,6 +809,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.id, s.name, e.course_id\nFROM students s LEFT JOIN enrollments e ON e.student_id = s.id\nORDER BY s.id, e.course_id;',
+        explain: {
+          syntax: 'SELECT ... FROM left_tbl a LEFT JOIN right_tbl b ON b.fk = a.pk [WHERE b.fk IS NULL];',
+          parts: [
+            ['LEFT JOIN', 'Keeps EVERY row from the left table (students); if no enrollment matches, right-side columns are filled with NULL.'],
+            ['WHERE e.student_id IS NULL', 'Anti-join pattern: filters the LEFT JOIN result to show ONLY left rows that had zero matches on the right.']
+          ]
+        },
         expected: '7 rows (5 matched + Meera & Dev padded with NULL); Unmatched-only preset finds Meera and Dev.',
         question: 'Why is LEFT JOIN ... WHERE right_pk IS NULL a classic way to find unmatched records?',
         answer: 'Outer join preserves unmatched left rows with NULL in the right columns, letting WHERE isolate exactly those missing matches.',
@@ -654,6 +833,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT c.id, c.course_name, e.student_id\nFROM enrollments e RIGHT JOIN courses c ON e.course_id = c.id\nORDER BY c.id, e.student_id;',
+        explain: {
+          syntax: 'SELECT ... FROM left_tbl a RIGHT JOIN right_tbl b ON a.fk = b.pk;',
+          parts: [
+            ['RIGHT JOIN', 'Mirror of LEFT JOIN: keeps EVERY row from the right table (courses) and pads unmatched left columns (e.student_id) with NULL.'],
+            ['ON e.course_id = c.id', 'Matches each enrollment to its course ID while preserving courses that have zero enrollments.']
+          ]
+        },
         expected: '6 rows: 5 enrollments plus Cloud Security with NULL student_id.',
         question: 'How would you rewrite this exact result using LEFT JOIN?',
         answer: 'Swap the tables: FROM courses c LEFT JOIN enrollments e ON e.course_id = c.id.',
@@ -667,6 +853,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT c.course_name, e.student_id, e.score\nFROM courses c LEFT JOIN enrollments e\n ON e.course_id = c.id AND e.score >= 80\nORDER BY c.id, e.student_id;',
+        explain: {
+          syntax: 'FROM left_tbl LEFT JOIN right_tbl ON match_cond AND right_filter',
+          parts: [
+            ['AND e.score >= 80 inside ON', 'Filters right-side rows DURING matching, so unmatched left courses still stay visible with NULL right columns.'],
+            ['WHERE e.score >= 80 (Preset 2)', 'Runs AFTER the LEFT JOIN and discards NULL-padded rows because NULL >= 80 is UNKNOWN.']
+          ]
+        },
         expected: 'Condition in ON preserves all 4 courses; moving it into WHERE collapses to 2 rows.',
         question: 'Why does moving e.score >= 80 to WHERE turn a LEFT JOIN into an effective INNER JOIN?',
         answer: 'WHERE runs after the outer join; NULL >= 80 evaluates to UNKNOWN, discarding the NULL-padded outer rows.',
@@ -684,6 +877,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT c.course_name, COUNT(e.student_id) AS enrolled\nFROM courses c LEFT JOIN enrollments e ON e.course_id = c.id\nGROUP BY c.id, c.course_name ORDER BY c.id;',
+        explain: {
+          syntax: 'SELECT p.name, COUNT(c.fk) FROM parent p LEFT JOIN child c ON c.fk = p.pk GROUP BY p.pk, p.name;',
+          parts: [
+            ['LEFT JOIN enrollments e', 'Keeps empty courses like Cloud Security with e.student_id = NULL.'],
+            ['COUNT(e.student_id)', 'Counts only non-NULL matched child keys, accurately returning 0 for empty courses (unlike COUNT(*) which would return 1!).'],
+            ['GROUP BY c.id, c.course_name', 'Groups rows per course so strict ONLY_FULL_GROUP_BY mode stays satisfied.']
+          ]
+        },
         expected: 'Cybersecurity: 2, Database Security: 2, Python for Security: 1, Cloud Security: 0.',
         question: 'What wrong answer would COUNT(*) display for Cloud Security?',
         answer: 'COUNT(*) counts the NULL-extended LEFT JOIN row and falsely reports 1 enrolled student instead of 0.',
@@ -697,6 +898,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.name, c.course_name, e.score\nFROM students s\nJOIN enrollments e ON e.student_id = s.id\nJOIN courses c ON c.id = e.course_id\nORDER BY s.id, c.id;',
+        explain: {
+          syntax: 'FROM table_a a JOIN junction j ON j.a_id = a.id JOIN table_b b ON b.id = j.b_id;',
+          parts: [
+            ['JOIN (shorthand for INNER JOIN)', 'Chains multiple tables step-by-step: first matching students to enrollments, then matching each enrollment to courses.'],
+            ['SELECT s.name, c.course_name, e.score', 'Pulls human-readable attributes from all three tables into one unified output table.']
+          ]
+        },
         expected: '5 enrollment rows displaying student names, course titles, and scores.',
         question: 'What information lives on enrollments that does not belong on students or courses alone?',
         answer: 'Per-enrollment facts such as score (or enrollment date/status), which belong to the relationship itself.',
@@ -710,6 +918,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s1.name AS student_a, s2.name AS student_b, s1.city\nFROM students s1\nJOIN students s2 ON s1.city = s2.city AND s1.id < s2.id\nORDER BY s1.city, s1.id;',
+        explain: {
+          syntax: 'FROM tbl a JOIN tbl b ON a.col = b.col AND a.id < b.id   /* SELF */\nFROM tbl_a CROSS JOIN tbl_b                              /* CARTESIAN */\nFROM tbl_a NATURAL JOIN tbl_b                            /* AUTO-NAME MATCH */',
+          parts: [
+            ['SELF JOIN (students s1 JOIN students s2)', 'Joins a table to itself using two distinct aliases to compare rows within the same table (s1.id < s2.id avoids duplicates).'],
+            ['CROSS JOIN', 'Pairs every row of the left table with every row of the right table (no ON clause: 6 × 4 = 24 rows).'],
+            ['NATURAL JOIN', 'Implicitly joins on every column sharing the exact same name—if zero column names match, it silently turns into a CROSS JOIN!']
+          ]
+        },
         expected: 'SELF JOIN finds pairs sharing a city (Aman & Kabir in Delhi; Riya & Zoya in Mumbai). CROSS JOIN yields 24 pairs.',
         question: 'Why does the SELF JOIN include AND s1.id < s2.id? And what makes NATURAL JOIN dangerous?',
         answer: 's1.id < s2.id removes self-pairs and mirror duplicates. NATURAL JOIN silently matches ALL same-named columns, breaking unexpectedly if columns are renamed or added later.',
@@ -738,6 +954,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT student_id FROM enrollments\nINTERSECT\nSELECT student_id FROM payments\nORDER BY student_id;',
+        explain: {
+          syntax: 'SELECT col FROM tbl_a  UNION | UNION ALL | INTERSECT | EXCEPT  SELECT col FROM tbl_b ORDER BY col;',
+          parts: [
+            ['UNION vs UNION ALL', 'Stacks rows from both queries vertically: UNION removes duplicates; UNION ALL keeps every row including repeats.'],
+            ['INTERSECT', 'Returns distinct rows present in BOTH query results (students who both enrolled AND made a payment).'],
+            ['EXCEPT', 'Returns distinct rows present in the FIRST query but absent from the SECOND (students who have not paid).']
+          ]
+        },
         expected: 'INTERSECT returns 4 student IDs (1,2,3,5). EXCEPT returns unpaid existing students (4=Meera, 6=Dev). UNION yields 4 unique IDs vs UNION ALL yielding 10.',
         question: 'Why does UNION return 4 rows when enrollments has 5 rows and payments has 5 rows?',
         answer: 'UNION removes duplicates across both tables (leaving student IDs 1, 2, 3, 5), whereas UNION ALL returns all 10 input rows including repeats.',
@@ -757,6 +981,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name\nFROM students s\nLEFT JOIN enrollments e ON e.student_id = s.id\nLEFT JOIN courses c ON c.id = e.course_id\nUNION\nSELECT s.id, s.name, c.id, c.course_name\nFROM courses c\nLEFT JOIN enrollments e ON e.course_id = c.id\nLEFT JOIN students s ON s.id = e.student_id\nORDER BY student_id, course_id;',
+        explain: {
+          syntax: 'SELECT ... FROM A LEFT JOIN B ...  UNION  SELECT ... FROM B LEFT JOIN A ... ORDER BY ...;',
+          parts: [
+            ['First LEFT JOIN branch', 'Preserves all matched enrollments PLUS unmatched students (Meera and Dev with NULL course columns).'],
+            ['Second LEFT JOIN branch', 'Preserves all matched enrollments PLUS unmatched courses (Cloud Security with NULL student columns).'],
+            ['UNION', 'Combines both halves vertically and automatically removes duplicate copies of the 5 matched rows.']
+          ]
+        },
         expected: '8 rows: all 5 matched enrollments + Meera + Dev + Cloud Security (with NULL student columns).',
         question: 'Why use UNION instead of UNION ALL when emulating FULL OUTER JOIN?',
         answer: 'UNION deduplicates the 5 matched rows that appear in both branches; UNION ALL would double-count matches.',
@@ -809,6 +1041,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT id, name FROM students\nWHERE id IN (SELECT student_id FROM enrollments WHERE course_id = 101)\nORDER BY id;',
+        explain: {
+          syntax: 'SELECT ... FROM outer_tbl WHERE col IN (SELECT col FROM inner_tbl WHERE ...);',
+          parts: [
+            ['Inner SELECT (subquery)', 'Runs first and independently to produce a list of student IDs enrolled in course 101: (1, 3).'],
+            ['WHERE id IN (...)', 'Checks each outer student row against that list—keeps the row if its id matches any item, without multiplying rows.']
+          ]
+        },
         expected: 'Aman (1) and Kabir (3).',
         question: 'Could an IN subquery ever duplicate outer student rows the way a join can?',
         answer: 'No. IN evaluates a boolean membership predicate per outer student row; it never multiplies rows.',
@@ -822,6 +1061,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.id, s.name FROM students s\nWHERE EXISTS (SELECT 1 FROM enrollments e WHERE e.student_id = s.id)\nORDER BY s.id;',
+        explain: {
+          syntax: 'SELECT ... FROM outer_tbl o WHERE [NOT] EXISTS (SELECT 1 FROM inner_tbl i WHERE i.fk = o.pk);',
+          parts: [
+            ['EXISTS / NOT EXISTS', 'Tests purely whether the inner query finds at least one matching row (TRUE) or zero rows (FALSE).'],
+            ['WHERE e.student_id = s.id', 'Links the inner query to the current outer student row s—making this a correlated subquery.'],
+            ['SELECT 1', 'Placeholder value because EXISTS cares only whether a row exists, not which columns are returned.']
+          ]
+        },
         expected: 'EXISTS returns 4 enrolled students; NOT EXISTS returns Meera and Dev.',
         question: 'Why is NOT EXISTS usually safer than NOT IN when NULLs could appear in the subquery?',
         answer: 'NOT EXISTS only returns true/false on row presence, whereas NOT IN returns empty if any NULL enters the subquery list.',
@@ -839,6 +1086,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT student_id, course_id, score FROM enrollments\nWHERE score > (SELECT AVG(score) FROM enrollments)\nORDER BY student_id, course_id;',
+        explain: {
+          syntax: 'SELECT ... FROM tbl WHERE col > (SELECT AGG(col) FROM tbl);',
+          parts: [
+            ['(SELECT AVG(score) FROM enrollments)', 'Scalar subquery: returns a single value (1 row × 1 column = 80.25) computed once across the table.'],
+            ['WHERE score > (...)', 'Compares each row’s score against that computed number dynamically instead of hardcoding 80.25.']
+          ]
+        },
         expected: 'Aman’s 88 and 92.',
         question: 'What happens at runtime if a scalar subquery unexpectedly returns 2 rows?',
         answer: 'MariaDB raises Error 1242: Subquery returns more than 1 row.',
@@ -852,6 +1106,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.name, s.city, s.age\nFROM students s\nWHERE s.age > (\n  SELECT AVG(s2.age) FROM students s2 WHERE s2.city = s.city\n)\nORDER BY s.id;',
+        explain: {
+          syntax: 'SELECT ... FROM tbl outer_a WHERE outer_a.val > (SELECT AVG(inner_a.val) FROM tbl inner_a WHERE inner_a.grp = outer_a.grp);',
+          parts: [
+            ['students s vs students s2', 'Uses two separate aliases for the same table so MariaDB distinguishes the outer row (s) from inner rows (s2).'],
+            ['WHERE s2.city = s.city', 'Correlates each outer student to only the peer students in that exact same city before computing AVG(s2.age).']
+          ]
+        },
         expected: 'Returns Aman (25 in Delhi > 23.5) and Zoya (23 in Mumbai > 21.0); 2 rows.',
         question: 'Why can you not highlight the inner SELECT AVG(s2.age) ... WHERE s2.city = s.city and run it alone?',
         answer: 'Because s.city refers to the outer students alias s! Inside a correlated subquery, the inner AVG recomputes dynamically for each candidate outer student city.',
@@ -865,6 +1126,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT student_id, course_id, score FROM enrollments\nWHERE score > ALL (SELECT score FROM enrollments WHERE course_id=101 AND score IS NOT NULL)\nORDER BY student_id, course_id;',
+        explain: {
+          syntax: 'WHERE col > ALL (SELECT col FROM ...)\nWHERE col > ANY (SELECT col FROM ...)',
+          parts: [
+            ['> ALL (subquery)', 'TRUE only when score beats EVERY single value returned by the subquery (beats both 65 and 88 -> only 92).'],
+            ['> ANY (subquery)', 'TRUE when score beats AT LEAST ONE value returned by the subquery (beats 65 -> 76, 88, 92).'],
+            ['AND score IS NOT NULL', 'Guards against NULL values inside the subquery set, which would otherwise make > ALL evaluate to UNKNOWN.']
+          ]
+        },
         expected: '> ALL returns 92 (beats both 88 and 65); > ANY returns 88, 92, and 76 (beats at least 65).',
         question: 'How does > ANY relate to > MIN() and > ALL relate to > MAX() on non-empty, non-NULL sets?',
         answer: 'x > ANY(set) is equivalent to x > MIN(set), while x > ALL(set) is equivalent to x > MAX(set).',
@@ -900,6 +1169,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'CREATE OR REPLACE SQL SECURITY INVOKER VIEW course_roster AS\nSELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name, e.score\nFROM students s\nJOIN enrollments e ON e.student_id=s.id\nJOIN courses c ON c.id=e.course_id;',
+        explain: {
+          syntax: 'CREATE OR REPLACE [ALGORITHM=MERGE|TEMPTABLE] SQL SECURITY INVOKER VIEW view_name AS SELECT ...;',
+          parts: [
+            ['CREATE OR REPLACE VIEW name AS', 'Saves a named virtual query in the database so users can run SELECT * FROM view_name like a table.'],
+            ['SQL SECURITY INVOKER', 'Checks permissions against whoever queries the view rather than whoever created it.'],
+            ['ALGORITHM=TEMPTABLE (Preset 2)', 'Materializes GROUP BY / aggregate results into a temporary table before returning them (making the view read-only).']
+          ]
+        },
         expected: 'Preset 1 creates course_roster (5 rows via Inspect); Presets 2 & 3 create and query v_course_summary (4 courses with enrolled_count and avg_score).',
         question: 'Why is a GROUP BY view like v_course_summary completely non-updatable compared to a single-table view?',
         answer: 'An aggregated row collapses multiple students into COUNT(*) / AVG(score), so there is no unique 1-to-1 base row to receive an INSERT or UPDATE.',
@@ -918,6 +1195,13 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "CREATE OR REPLACE VIEW v_delhi_students AS\nSELECT id, name, email, age, city, joined_on\nFROM student_edits\nWHERE city = 'Delhi'\nWITH CHECK OPTION;",
+        explain: {
+          syntax: "CREATE OR REPLACE VIEW view_name AS SELECT ... FROM single_table WHERE rule WITH CHECK OPTION;",
+          parts: [
+            ['Simple view on student_edits', 'Maps 1-to-1 to a single base table with no GROUP BY/aggregates, so UPDATE passes cleanly through to student_edits.'],
+            ['WITH CHECK OPTION', 'Blocks any INSERT or UPDATE through the view that would cause the modified row to fail WHERE city = \'Delhi\' (Error 1369).']
+          ]
+        },
         expected: 'Simple updatable view created. Valid age update succeeds; moving Aman out of Delhi fails with Error 1369!',
         question: 'What is the difference between a Virtual View (standard in MariaDB) and a Materialized View?',
         answer: 'A Virtual View stores only the query definition and recomputes on read; a Materialized View stores precomputed snapshot rows physically on disk.',
@@ -939,6 +1223,14 @@ COURSE.sections.push(
         database: 'sql_lab',
         prepare: 'prepare-course-roster',
         sql: "SELECT TABLE_NAME, CHECK_OPTION, IS_UPDATABLE, SECURITY_TYPE\nFROM information_schema.VIEWS\nWHERE TABLE_SCHEMA = 'sql_lab'\nORDER BY TABLE_NAME;",
+        explain: {
+          syntax: 'SELECT ... FROM information_schema.VIEWS;\nALTER [ALGORITHM=...] VIEW name AS SELECT ...;\nDROP VIEW [IF EXISTS] name;',
+          parts: [
+            ['information_schema.VIEWS', 'System catalog listing every view’s CHECK_OPTION, IS_UPDATABLE flag (YES/NO), and SECURITY_TYPE.'],
+            ['ALTER VIEW', 'Redefines an existing view’s SELECT query (for example adding c.fee to v_course_summary) without dropping it first.'],
+            ['SHOW FULL TABLES / DROP VIEW', 'SHOW FULL TABLES labels each object BASE TABLE vs VIEW; DROP VIEW deletes the saved view definition without touching base rows.']
+          ]
+        },
         presets: [
           ['1. Inspect VIEWS catalog', "SELECT TABLE_NAME, CHECK_OPTION, IS_UPDATABLE, SECURITY_TYPE FROM information_schema.VIEWS WHERE TABLE_SCHEMA = 'sql_lab' ORDER BY TABLE_NAME;"],
           ['2. ALTER VIEW v_course_summary', 'ALTER ALGORITHM=TEMPTABLE SQL SECURITY INVOKER VIEW v_course_summary AS SELECT c.id AS course_id, c.course_name, c.fee, COUNT(e.student_id) AS enrolled_count, ROUND(AVG(e.score), 1) AS avg_score FROM courses c LEFT JOIN enrollments e ON e.course_id = c.id GROUP BY c.id, c.course_name, c.fee;'],
@@ -995,6 +1287,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT id AS payment_id, amount,\n ROUND(amount * 1.18, 2) AS with_gst,\n CEIL(amount / 1500) AS ceiling_slots,\n FLOOR(amount / 1500) AS floor_slots,\n MOD(amount, 1500) AS remainder,\n ABS(-42) AS abs_demo\nFROM payments ORDER BY id;",
+        explain: {
+          syntax: 'ROUND(x, d)  |  TRUNCATE(x, d)  |  CEIL(x)  |  FLOOR(x)  |  MOD(a, b)  |  ABS(x)  |  POWER(x, y)  |  SQRT(x)',
+          parts: [
+            ['ROUND(x, d) vs TRUNCATE(x, d)', 'ROUND rounds to d decimal places; TRUNCATE cuts off extra digits without rounding.'],
+            ['CEIL(x) vs FLOOR(x)', 'CEIL rounds up to the next integer; FLOOR rounds down to the previous integer.'],
+            ['MOD(a, b) & ABS(x)', 'MOD returns the integer division remainder; ABS strips the minus sign to return magnitude.']
+          ]
+        },
         expected: 'Demonstrates ROUND, CEIL, FLOOR, MOD, and ABS across all 5 payments.',
         question: 'How do ROUND(12.678, 1) and TRUNCATE(12.678, 1) differ?',
         answer: 'ROUND rounds to nearest (12.7), whereas TRUNCATE chops off digits beyond the decimal places (12.6).',
@@ -1012,6 +1312,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, UPPER(name) AS upper_name, LOWER(name) AS lower_name,\n CHAR_LENGTH(name) AS chars, SUBSTRING(email, 1, 6) AS email_prefix,\n CONCAT(name, ' <', email, '>') AS formatted_contact\nFROM students ORDER BY id;",
+        explain: {
+          syntax: "UPPER(s) | LOWER(s) | CHAR_LENGTH(s) | SUBSTRING(s, start, len) | CONCAT(a, b)\nTRIM(s) | REPLACE(s, old, new) | COALESCE(a, fallback) | NULLIF(a, b)",
+          parts: [
+            ['UPPER / LOWER / TRIM / REPLACE', 'Transforms letter case, strips outer spaces, or substitutes substrings in output text.'],
+            ['CHAR_LENGTH / SUBSTRING / CONCAT', 'Counts characters (1-indexed), slices a substring starting at position 1, and joins strings together.'],
+            ['COALESCE(NULLIF(city, \'\'), \'Not supplied\')', 'NULLIF converts empty string \'\' to NULL; COALESCE then returns the first non-NULL fallback value.']
+          ]
+        },
         expected: 'Six formatted rows; COALESCE(NULLIF(city, ""), "Not supplied") displays clean fallback text for Dev without modifying base rows.',
         question: 'Why prefer CHAR_LENGTH() over LENGTH() when dealing with UTF-8 strings? And does COALESCE replace empty string ""?',
         answer: 'CHAR_LENGTH() counts characters whereas LENGTH() counts bytes. COALESCE only replaces NULL, so combine COALESCE(NULLIF(col, ""), fallback) to handle both.',
@@ -1030,6 +1338,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, joined_on,\n YEAR(joined_on) AS join_year,\n MONTHNAME(joined_on) AS join_month,\n DATE_FORMAT(joined_on, '%d %b %Y') AS formatted_date,\n DATE_ADD(joined_on, INTERVAL 30 DAY) AS review_due,\n DATEDIFF('2026-09-01', joined_on) AS days_since_joining\nFROM students ORDER BY id;",
+        explain: {
+          syntax: "YEAR(d) | MONTHNAME(d) | DATE_FORMAT(d, fmt)\nDATE_ADD(d, INTERVAL n DAY) | DATEDIFF(end_d, start_d) | CURDATE() | NOW()",
+          parts: [
+            ['YEAR / MONTHNAME / DATE_FORMAT', 'Extracts numeric year, full month name, or custom display formats like "01 Jul 2026".'],
+            ['DATE_ADD / DATE_SUB / DATEDIFF', 'Shifts dates forward/backward by an INTERVAL or computes exact whole days between two dates.'],
+            ['CURDATE() / NOW() / LAST_DAY()', 'Reads the MariaDB server’s current date, current timestamp, or final day of the month.']
+          ]
+        },
         expected: 'Aman: 62 days, Riya: 60, Kabir: 53, Meera: 48, Zoya: 31, Dev: 22.',
         question: 'Why pass literal "2026-09-01" instead of CURDATE() in deterministic classroom tests?',
         answer: 'A fixed reference date guarantees reproducible row counts every semester; CURDATE() / NOW() work identically for live dashboards.',
@@ -1047,6 +1363,14 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT s.id, s.name, COALESCE(p.total_paid,0) AS total_paid\nFROM students s LEFT JOIN\n (SELECT student_id, SUM(amount) AS total_paid FROM payments GROUP BY student_id) p\n ON p.student_id=s.id\nORDER BY s.id;',
+        explain: {
+          syntax: 'SELECT s.id, COALESCE(sub.total, 0) FROM students s LEFT JOIN (SELECT fk, SUM(amt) AS total FROM child GROUP BY fk) sub ON sub.fk = s.id;',
+          parts: [
+            ['Derived table (SELECT ... GROUP BY) p', 'Collapses multiple payment rows into exactly ONE summary row per student_id BEFORE joining.'],
+            ['LEFT JOIN ... ON p.student_id = s.id', 'Preserves unpaid students (Meera and Dev) with p.total_paid = NULL.'],
+            ['COALESCE(p.total_paid, 0)', 'Turns NULL totals for unpaid students into a clean 0.00 in the final report.']
+          ]
+        },
         expected: 'Aman 6000, Riya 4000, Kabir 2000, Meera 0, Zoya 1000, Dev 0.',
         question: 'What happens if someone joins students -> enrollments -> payments and sums payments directly?',
         answer: 'Aman has 2 enrollments and 2 payments, producing 4 rows and falsely doubling his paid total to 12,000!',

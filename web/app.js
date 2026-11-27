@@ -1078,7 +1078,24 @@ function renderQuery(runnerMount, config, options = {}) {
     : null;
 
   if (guideMount) {
+    const exp = config.explain;
+    const explainHTML =
+      exp && (exp.syntax || (Array.isArray(exp.parts) && exp.parts.length))
+        ? `<section class="command-guide" aria-label="Command explanation">
+            <p class="demo-caption">What this command does</p>
+            ${exp.syntax ? `<pre class="command-syntax">${esc(exp.syntax)}</pre>` : ''}
+            ${
+              Array.isArray(exp.parts) && exp.parts.length
+                ? `<dl class="command-parts">${exp.parts
+                    .map(([token, desc]) => `<div class="command-part"><dt><code>${esc(token)}</code></dt><dd>${esc(desc)}</dd></div>`)
+                    .join('')}</dl>`
+                : ''
+            }
+          </section>`
+        : '';
+
     guideMount.innerHTML = `
+      ${explainHTML}
       ${
         presets.length
           ? `<div class="guide-presets">

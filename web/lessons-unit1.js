@@ -188,6 +188,14 @@ window.COURSE = {
           type: 'query',
           database: 'college_demo',
           sql: 'DESCRIBE students;',
+          explain: {
+            syntax: 'DESCRIBE table_name;',
+            parts: [
+              ['DESCRIBE', 'Reads the table blueprint (column names, data types, NULL rules, keys) without returning any student rows.'],
+              ['students', 'The target table inside the currently selected database (college_demo).'],
+              ['Key column', 'PRI marks the Primary Key, UNI marks a UNIQUE constraint, and MUL marks an indexed/Foreign Key column.']
+            ]
+          },
           expected: 'Five columns. id is PRI (primary key), email is UNI (unique), age and course_id allow NULL.',
           question: 'Which columns in this output describe structure rather than student records?',
           answer: 'Field, Type, Null, Key, Default, and Extra are all schema metadata from the Data Dictionary.',
@@ -302,6 +310,15 @@ window.COURSE = {
           type: 'query',
           database: 'college_demo',
           sql: 'SELECT s.name, c.course_name AS primary_course\nFROM students AS s\nJOIN courses AS c ON s.course_id = c.id\nORDER BY s.id;',
+          explain: {
+            syntax: 'SELECT a.col, b.col FROM table_a AS a JOIN table_b AS b ON a.fk = b.pk ORDER BY ...;',
+            parts: [
+              ['SELECT ... AS primary_course', 'Chooses which columns to display and gives course_name a clearer output label.'],
+              ['FROM students AS s', 'Starts from students using short nickname (alias) s so columns stay easy to read.'],
+              ['JOIN courses AS c ON s.course_id = c.id', 'Matches each student row to the course row whose id equals that student’s course_id (full join types are taught in Unit 2.5).'],
+              ['ORDER BY s.id', 'Sorts the displayed rows by student ID ascending.']
+            ]
+          },
           expected: 'Five students paired with their primary course names.',
           question: 'Did running this JOIN physically combine students and courses on disk?',
           answer: 'No. JOIN computes a transient query result while keeping both base tables normalized and independent.',
@@ -427,6 +444,14 @@ window.COURSE = {
           type: 'query',
           database: 'college_demo',
           sql: 'SELECT id, name\nFROM students\nWHERE id = 1;',
+          explain: {
+            syntax: 'SELECT col1, col2 FROM table_name WHERE condition;',
+            parts: [
+              ['SELECT id, name', 'Retrieves only the id and name columns instead of the entire row.'],
+              ['FROM students', 'Specifies which table MariaDB should read from.'],
+              ['WHERE id = 1', 'Filters rows so only the record whose primary key id equals 1 is returned.']
+            ]
+          },
           expected: 'Returns student 1 (Aman Verma) from college_demo.',
           question: 'Did your browser have to parse .ibd binary pages to show Aman’s name?',
           answer: 'No. MariaDB’s Storage Manager and Buffer Manager read the page and returned structured rows over the network protocol.',
@@ -461,6 +486,13 @@ window.COURSE = {
           type: 'query',
           database: 'college_demo',
           sql: 'SHOW DATABASES;',
+          explain: {
+            syntax: 'SHOW DATABASES;',
+            parts: [
+              ['SHOW DATABASES', 'Lists every database (schema) that your currently logged-in MariaDB account has permission to see.'],
+              [';', 'Marks the end of an SQL statement so MariaDB knows the command is complete.']
+            ]
+          },
           expected: 'Shows databases visible to the limited classroom_console identity (college_demo, classroom_practice, sql_lab, information_schema).',
           question: 'Why does classroom_console not list security_lab or root-only databases?',
           answer: 'SHOW DATABASES respects account privileges. Least-privilege accounts only see databases they hold grants on.',
@@ -473,6 +505,14 @@ window.COURSE = {
           type: 'query',
           database: 'college_demo',
           sql: 'SHOW TABLES;',
+          explain: {
+            syntax: 'SHOW TABLES;\nDESCRIBE table_name;\nSELECT * FROM table_name ORDER BY col;',
+            parts: [
+              ['SHOW TABLES', 'Lists all tables and views inside the active database (college_demo).'],
+              ['DESCRIBE students', 'Prints each column’s name, data type, NULL setting, and key constraint.'],
+              ['SELECT * FROM courses', 'Reads every column (*) and every row stored in the courses table.']
+            ]
+          },
           presets: [
             ['Table names', 'SHOW TABLES;'],
             ['Student definition', 'DESCRIBE students;'],
@@ -491,6 +531,15 @@ window.COURSE = {
           database: 'classroom_practice',
           resetKind: 'practice',
           sql: 'CREATE TABLE lab_students (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(100) NOT NULL,\n  email VARCHAR(120) NOT NULL UNIQUE,\n  age INT CHECK (age >= 16)\n);',
+          explain: {
+            syntax: 'CREATE TABLE table_name (col1 TYPE constraints, col2 TYPE constraints, ...);',
+            parts: [
+              ['CREATE TABLE lab_students', 'Defines a brand-new empty table named lab_students inside classroom_practice.'],
+              ['INT PRIMARY KEY AUTO_INCREMENT', 'Whole-number unique row ID automatically incremented (1, 2, 3…) on each insert.'],
+              ['VARCHAR(100) NOT NULL', 'Variable-length text up to 100 characters that cannot be left blank (NULL).'],
+              ['UNIQUE & CHECK (age >= 16)', 'UNIQUE blocks duplicate emails; CHECK rejects ages below 16.']
+            ]
+          },
           expected: 'Statement completed. The table now exists with zero rows.',
           question: 'What happens if you click Run a second time without resetting?',
           answer: 'MariaDB raises Error 1050 (Table already exists). Use "Reset lab_students" in SQL Studio when repeating a lecture.',
@@ -505,6 +554,13 @@ window.COURSE = {
           setup: true,
           resetKind: 'practice',
           sql: "INSERT INTO lab_students (name, email, age)\nVALUES ('Aman', 'aman.lab@example.com', 25),\n       ('Riya', 'riya.lab@example.com', 19),\n       ('Kabir', 'kabir.lab@example.com', 22);",
+          explain: {
+            syntax: 'INSERT INTO table_name (col1, col2, col3) VALUES (v1, v2, v3), (...);',
+            parts: [
+              ['INSERT INTO lab_students (...)', 'Adds new rows into lab_students and names the exact columns you are supplying (omitting AUTO_INCREMENT id).'],
+              ['VALUES (...), (...)', 'Each parenthesized tuple inserts one row; text strings go in single quotes, numbers stay unquoted.']
+            ]
+          },
           expected: '3 row(s) affected on the first run; repeating fails due to UNIQUE(email).',
           question: 'Why is omitting id valid here when id is a NOT NULL PRIMARY KEY?',
           answer: 'AUTO_INCREMENT automatically generates the next sequential integer.',
@@ -520,6 +576,14 @@ window.COURSE = {
           seedPractice: true,
           resetKind: 'practice',
           sql: 'SELECT * FROM lab_students ORDER BY id;',
+          explain: {
+            syntax: 'SELECT col1, col2 FROM table_name WHERE condition ORDER BY col;',
+            parts: [
+              ['SELECT * / SELECT name, age', '* returns every column; naming specific columns (projection) shows only what you ask for.'],
+              ['WHERE age > 20', 'Keeps only rows that satisfy the condition before displaying them.'],
+              ['ORDER BY id / age', 'Sorts the returned rows in ascending order (smallest to largest).']
+            ]
+          },
           presets: [
             ['All columns', 'SELECT * FROM lab_students ORDER BY id;'],
             ['Name and age', 'SELECT name, age FROM lab_students ORDER BY id;'],
@@ -540,6 +604,14 @@ window.COURSE = {
           seedPractice: true,
           resetKind: 'practice',
           sql: "INSERT INTO lab_students (name, email, age)\nVALUES ('Aman again', 'aman.lab@example.com', 25);",
+          explain: {
+            syntax: 'INSERT INTO lab_students (name, email, age) VALUES (...);',
+            parts: [
+              ['Duplicate email preset', 'Tests the UNIQUE rule on email—MariaDB rejects repeating aman.lab@example.com.'],
+              ['Invalid age (12) preset', 'Tests CHECK (age >= 16)—MariaDB blocks saving an out-of-range age.'],
+              ['Missing name (NULL) preset', 'Tests NOT NULL—MariaDB blocks inserting a row with no student name.']
+            ]
+          },
           presets: [
             ['Duplicate email', "INSERT INTO lab_students (name, email, age) VALUES ('Aman again', 'aman.lab@example.com', 25);"],
             ['Invalid age', "INSERT INTO lab_students (name, email, age) VALUES ('Young learner', 'young.lab@example.com', 12);"],

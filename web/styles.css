@@ -325,7 +325,52 @@ h3 { margin: 0 0 10px; font-size: 16.5px; line-height: 1.35; font-weight: 600; }
 body.studio-open .lead { font-size: 15px; margin-bottom: 18px; }
 .demo { margin-bottom: 26px; }
 
-/* Guide Presets on SQL Steps */
+/* Command Explanation & Guide Presets on SQL Steps */
+.command-guide {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 14px;
+}
+.command-syntax {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.command-parts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.command-part {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.command-part dt { margin: 0; }
+.command-part dt code {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  color: var(--accent-ink);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.command-part dd { margin: 0; color: var(--ink); }
+
 .guide-presets {
   padding: 14px 16px;
   border: 1px solid var(--line);
@@ -716,7 +761,10 @@ body.presenting .quiz-option { font-size: 16.5px; }
 body.presenting .discussion > p { font-size: 23px; }
 body.presenting .answer,
 body.presenting .code-block,
-body.presenting .log-viewer { font-size: 15px; }
+body.presenting .log-viewer,
+body.presenting .command-syntax { font-size: 15px; }
+body.presenting .command-part { font-size: 15.5px; }
+body.presenting .command-part dt code { font-size: 14px; }
 body.presenting .sql-editor { font-size: 17px; min-height: 170px; }
 body.presenting .studio-result .data-table { font-size: 15.5px; }
 body.presenting .diagram-svg { max-width: 1040px; }
@@ -766,6 +814,7 @@ body.theme-dark .dock-btn.dock-primary:hover:not(:disabled) { background: #eba18
   .floating-dock::-webkit-scrollbar { display: none; }
   .dock-pill { max-width: 120px; }
   .dock-btn { padding: 6px 9px; font-size: 12px; }
+  .command-part { grid-template-columns: 1fr; gap: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }

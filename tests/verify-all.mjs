@@ -124,6 +124,12 @@ for (const sec of COURSE.sections) {
     if (st.type === 'diagram') {
       assert.ok(CLASSROOM_DIAGRAMS[st.diagram], `Missing diagram ${st.diagram}`);
     }
+    if (st.type === 'query') {
+      assert.ok(
+        st.explain && typeof st.explain.syntax === 'string' && st.explain.syntax.trim() && Array.isArray(st.explain.parts) && st.explain.parts.length >= 2,
+        `Missing command explanation (explain.syntax & parts) on ${sec.id}/${st.id}`
+      );
+    }
     allSteps.push({ section: sec, step: st });
   }
 }

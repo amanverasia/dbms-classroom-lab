@@ -39,6 +39,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'perf_lab',
         sql: "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('log_error','general_log','general_log_file','slow_query_log','slow_query_log_file','long_query_time','log_bin','binlog_format');",
+        explain: {
+          syntax: "SHOW GLOBAL VARIABLES WHERE Variable_name IN (...);\nSHOW GLOBAL STATUS LIKE 'Slow_queries';\nSELECT SLEEP(0.7);",
+          parts: [
+            ['SHOW GLOBAL VARIABLES', 'Displays server-wide configuration settings (log paths, slow-query threshold long_query_time, binlog format).'],
+            ['SELECT SLEEP(0.7)', 'Pauses execution for 0.7 seconds (> 0.5s threshold) to safely generate a real entry in slow.log.'],
+            ['SHOW GLOBAL STATUS', 'Reads live server runtime counters such as total Slow_queries since startup.']
+          ]
+        },
         presets: [
           ['Inspect log variables', "SHOW GLOBAL VARIABLES WHERE Variable_name IN ('log_error','general_log','general_log_file','slow_query_log','slow_query_log_file','long_query_time','log_bin','binlog_format');"],
           ['Trigger 0.7s slow query', "SELECT SLEEP(0.7) AS slow_demo, 'Check slow.log now' AS tip;"],
@@ -80,6 +88,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'information_schema',
         sql: 'SHOW FULL PROCESSLIST;',
+        explain: {
+          syntax: 'SHOW FULL PROCESSLIST;\nSHOW GLOBAL STATUS WHERE ...;\nKILL [QUERY] thread_id;',
+          parts: [
+            ['SHOW FULL PROCESSLIST', 'Lists every active client connection, its thread Id, current database, state, duration, and full running SQL.'],
+            ['SHOW GLOBAL / SESSION STATUS', 'Reads server-wide vs current-connection runtime counters (Questions, Com_select, Slow_queries).'],
+            ['events_statements_summary_by_digest', 'Groups normalized SQL patterns in performance_schema to rank the slowest/heaviest queries.']
+          ]
+        },
         presets: [
           ['Active connections (PROCESSLIST)', 'SHOW FULL PROCESSLIST;'],
           ['Global command counters (Com_*)', "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Questions','Com_select','Com_insert','Com_update','Com_delete','Slow_queries');"],
@@ -193,6 +209,14 @@ COURSE.sections.push(
         database: 'perf_lab',
         resetKind: 'unit4-perf',
         sql: 'EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42;',
+        explain: {
+          syntax: 'EXPLAIN SELECT ...;\nSHOW INDEX FROM table_name;',
+          parts: [
+            ['EXPLAIN', 'Asks MariaDB’s Query Optimizer to reveal its execution plan without actually returning the table rows.'],
+            ['type / key / rows columns', 'type = ALL and key = NULL warn of a full table scan; rows estimates how many rows MariaDB must inspect.'],
+            ['SHOW INDEX FROM ...', 'Lists every existing primary and secondary index defined on the table.']
+          ]
+        },
         presets: [
           ['1. EXPLAIN query plan', 'EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42;'],
           ['2. Run actual query', 'SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42 ORDER BY id LIMIT 10;'],
@@ -212,6 +236,14 @@ COURSE.sections.push(
         database: 'perf_lab',
         resetKind: 'unit4-perf',
         sql: 'CREATE INDEX IF NOT EXISTS idx_activity_student ON activity_events(student_id);',
+        explain: {
+          syntax: 'CREATE INDEX [IF NOT EXISTS] idx_name ON table_name (col1, col2, ...);\nDROP INDEX [IF EXISTS] idx_name ON table_name;',
+          parts: [
+            ['CREATE INDEX ... ON table(col)', 'Builds a sorted B+Tree lookup structure on student_id so MariaDB jumps straight to matching rows (type = ref).'],
+            ['Composite / Covering index', 'Indexing (student_id, event_type, duration_ms) lets MariaDB answer the SELECT solely from index pages (Extra: Using index).'],
+            ['DROP INDEX ... ON table', 'Removes a secondary index to reclaim disk/write overhead when no longer needed.']
+          ]
+        },
         inspectSql: 'EXPLAIN SELECT id, event_type, duration_ms FROM activity_events WHERE student_id = 42;',
         presets: [
           ['1. Create index on student_id', 'CREATE INDEX IF NOT EXISTS idx_activity_student ON activity_events(student_id);'],
@@ -232,6 +264,14 @@ COURSE.sections.push(
         persona: 'dba_lab',
         database: 'information_schema',
         sql: "SELECT TABLE_SCHEMA AS db_name, TABLE_NAME, ENGINE, TABLE_ROWS,\n ROUND(DATA_LENGTH / 1024, 1) AS data_kb,\n ROUND(INDEX_LENGTH / 1024, 1) AS index_kb,\n ROUND(DATA_FREE / 1024, 1) AS free_kb\nFROM information_schema.TABLES\nWHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab')\nORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC;",
+        explain: {
+          syntax: 'SELECT TABLE_SCHEMA, DATA_LENGTH, INDEX_LENGTH, DATA_FREE FROM information_schema.TABLES;\nANALYZE TABLE db.tbl;\nCHECK TABLE db.tbl;',
+          parts: [
+            ['DATA_LENGTH / INDEX_LENGTH / DATA_FREE', 'Measures table row bytes, secondary index bytes, and allocated-but-unused fragmented space inside each tablespace.'],
+            ['ANALYZE TABLE', 'Recomputes index cardinality statistics so the Query Optimizer picks accurate plans.'],
+            ['CHECK TABLE', 'Scans table and index pages to verify structural integrity and detect corruption.']
+          ]
+        },
         presets: [
           ['1. Per-table footprint (KB)', "SELECT TABLE_SCHEMA AS db_name, TABLE_NAME, ENGINE, TABLE_ROWS, ROUND(DATA_LENGTH / 1024, 1) AS data_kb, ROUND(INDEX_LENGTH / 1024, 1) AS index_kb, ROUND(DATA_FREE / 1024, 1) AS free_kb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab') ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC;"],
           ['2. Per-database summary (MB)', "SELECT TABLE_SCHEMA AS db_name, COUNT(*) AS tables, SUM(TABLE_ROWS) AS approx_rows, ROUND(SUM(DATA_LENGTH + INDEX_LENGTH)/1024/1024, 3) AS total_mb FROM information_schema.TABLES WHERE TABLE_SCHEMA IN ('college_demo','sql_lab','security_lab','perf_lab','ops_lab','backup_lab') GROUP BY TABLE_SCHEMA ORDER BY total_mb DESC;"],
