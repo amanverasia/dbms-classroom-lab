@@ -2261,7 +2261,7 @@ const CHEAT_SHEETS = {
       ['DDL / DML / DCL / TCL', 'DDL: CREATE/ALTER/DROP/TRUNCATE (auto-commit) | DML: INSERT/UPDATE/DELETE/SELECT | DCL: GRANT/REVOKE | TCL: COMMIT/ROLLBACK'],
       ['5 Constraints', 'PRIMARY KEY, FOREIGN KEY (ON DELETE/UPDATE), UNIQUE, NOT NULL, CHECK (expr)'],
       ['Joins & Set Ops', 'INNER, LEFT, RIGHT, FULL OUTER (LEFT UNION RIGHT), CROSS, SELF, NATURAL | UNION, UNION ALL, INTERSECT, EXCEPT'],
-      ['Views & Types', 'Simple (single table, updatable) vs Complex (JOIN/GROUP BY, read-only); WITH CHECK OPTION rejects out-of-filter writes (1369)'],
+      ['Views & Types', 'Simple (single table, updatable) vs Complex (GROUP BY/aggregates/DISTINCT/UNION, read-only); WITH CHECK OPTION rejects out-of-filter writes (1369)'],
       ['Built-in Functions', 'Numeric: ABS, ROUND, TRUNCATE, CEIL, FLOOR, MOD, SQRT | String: UPPER, LOWER, CHAR_LENGTH, CONCAT, SUBSTRING, TRIM | Date: DATEDIFF, DATE_ADD, DATE_FORMAT | Null: COALESCE, NULLIF']
     ])}</div>`,
   u3: `<h3>Unit 3 · MariaDB Concepts, Security &amp; Auth</h3>

@@ -22,7 +22,7 @@ CREATE TABLE course_notes (
   created_on DATE NOT NULL,
   FOREIGN KEY (course_id) REFERENCES courses(id)
 );
-ALTER TABLE course_notes ADD COLUMN priority INT NOT NULL DEFAULT 1 CHECK (priority BETWEEN 1 AND 3);
+ALTER TABLE course_notes ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 1 CHECK (priority >= 1 AND priority <= 3);
 DESCRIBE course_notes;
 INSERT INTO course_notes (course_id, note, created_on) VALUES (101, 'Check firewall lab', '2026-08-01');
 TRUNCATE TABLE course_notes;
@@ -100,17 +100,18 @@ ORDER BY s1.city, s1.id;
 
 SELECT s.name, c.course_name FROM students s CROSS JOIN courses c ORDER BY s.id, c.id;
 
+SELECT student_id FROM enrollments UNION SELECT student_id FROM payments ORDER BY student_id;
+SELECT student_id FROM enrollments UNION ALL SELECT student_id FROM payments ORDER BY student_id;
+SELECT student_id FROM enrollments INTERSECT SELECT student_id FROM payments ORDER BY student_id;
+SELECT id FROM students EXCEPT SELECT student_id FROM payments ORDER BY id;
+
+-- FULL OUTER JOIN emulation in MariaDB (combining LEFT JOIN + UNION):
 SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name
 FROM students s LEFT JOIN enrollments e ON e.student_id = s.id LEFT JOIN courses c ON c.id = e.course_id
 UNION
 SELECT s.id, s.name, c.id, c.course_name
 FROM courses c LEFT JOIN enrollments e ON e.course_id = c.id LEFT JOIN students s ON s.id = e.student_id
 ORDER BY student_id, course_id;
-
-SELECT student_id FROM enrollments UNION SELECT student_id FROM payments ORDER BY student_id;
-SELECT student_id FROM enrollments UNION ALL SELECT student_id FROM payments ORDER BY student_id;
-SELECT student_id FROM enrollments INTERSECT SELECT student_id FROM payments ORDER BY student_id;
-SELECT id FROM students EXCEPT SELECT student_id FROM payments ORDER BY id;
 
 -- 7. Subqueries (IN, EXISTS, Scalar, Correlated, ANY/ALL) & Views
 SELECT id, name FROM students WHERE id IN (SELECT student_id FROM enrollments WHERE course_id = 101) ORDER BY id;

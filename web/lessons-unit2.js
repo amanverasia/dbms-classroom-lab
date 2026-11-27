@@ -86,20 +86,20 @@ COURSE.sections.push(
       {
         id: 'sql-alter',
         title: 'DDL Practical 2: reshape a table with ALTER TABLE.',
-        lead: 'Tables evolve after creation. Use ALTER TABLE with ADD COLUMN, MODIFY COLUMN, or DROP COLUMN (DEFAULT 1 fills omitted values; CHECK restricts valid numbers), then click Inspect after each preset.',
+        lead: 'Tables evolve after creation. Use ALTER TABLE with ADD COLUMN, MODIFY COLUMN, or DROP COLUMN (DEFAULT 1 fills omitted values; CHECK restricts valid numbers to 1–3), then click Inspect after each preset.',
         type: 'query',
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
-        sql: 'ALTER TABLE course_notes\nADD COLUMN priority INT NOT NULL DEFAULT 1 CHECK (priority BETWEEN 1 AND 3);',
-        expected: 'Adds priority INT DEFAULT 1. Use presets and Inspect to verify schema modifications.',
+        sql: 'ALTER TABLE course_notes\nADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 1 CHECK (priority >= 1 AND priority <= 3);',
+        expected: 'Adds priority INT DEFAULT 1. Run Presets 1 -> 2 -> 3 in order and click Inspect after each change.',
         question: 'Does ALTER TABLE ADD COLUMN insert new rows into course_notes?',
         answer: 'No. It alters the table schema and assigns the DEFAULT value to existing rows (if any).',
-        notes: 'Click Prepare in SQL Studio if jumping straight to this step so course_notes starts cleanly without priority.',
+        notes: 'Click Prepare in SQL Studio if jumping straight to this step so course_notes starts cleanly without priority, then run Presets 1 -> 2 -> 3.',
         inspectSql: 'DESCRIBE course_notes;',
         presets: [
-          ['1. Modify note length', 'ALTER TABLE course_notes MODIFY COLUMN note VARCHAR(400) NOT NULL;'],
-          ['2. Drop priority column', 'ALTER TABLE course_notes DROP COLUMN priority;'],
-          ['3. Re-add priority column', 'ALTER TABLE course_notes ADD COLUMN priority INT NOT NULL DEFAULT 1 CHECK (priority BETWEEN 1 AND 3);']
+          ['1. Add priority column', 'ALTER TABLE course_notes ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 1 CHECK (priority >= 1 AND priority <= 3);'],
+          ['2. Modify note length', 'ALTER TABLE course_notes MODIFY COLUMN note VARCHAR(400) NOT NULL;'],
+          ['3. Drop priority column', 'ALTER TABLE course_notes DROP COLUMN IF EXISTS priority;']
         ]
       },
       {
@@ -194,7 +194,7 @@ COURSE.sections.push(
           ['DEFAULT', 'Supplies fallback value when column omitted', 'Used only if column omitted on INSERT', "status VARCHAR(20) DEFAULT 'active'"]
         ],
         question: 'If a column has age INT CHECK (age >= 16) WITHOUT NOT NULL, will MariaDB accept INSERT with age = NULL?',
-        answer: 'Yes! Because NULL >= 16 evaluates to UNKNOWN (not FALSE), SQL CHECK constraints accept NULL unless NOT NULL is also declared.',
+        answer: 'Yes! Because NULL means missing/unknown, NULL >= 16 evaluates to UNKNOWN rather than FALSE—and CHECK only rejects FALSE (we will examine SQL’s 3-valued NULL logic in Section 2.3). Pair CHECK with NOT NULL to block NULLs.',
         notes: 'Cover all 5 constraints and ON DELETE options (RESTRICT, CASCADE, SET NULL) before switching to student_edits.'
       },
       {
@@ -528,11 +528,12 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: 'SELECT COUNT(*) AS payments, SUM(amount) AS total,\n ROUND(AVG(amount),2) AS mean_payment\nFROM payments;',
-        expected: '5 payment rows totaling 14,000.00; average per installment = 2,800.00.',
-        question: 'Is 2,800 the average total paid per student?',
-        answer: 'No. 2,800 is the mean per payment event, not per student (use GROUP BY student_id for per-student totals).',
-        notes: 'Highlight event-level vs entity-level averages.',
-        expectedRows: 1
+        expected: '5 payment rows totaling 13,000.00; average per installment = 2,600.00.',
+        question: 'Is 2,600 the average total paid per student?',
+        answer: 'No. 2,600 is the mean per payment installment (13,000 / 5 payments), not per student (the 4 paying students average 3,250 each—use GROUP BY student_id for per-student totals).',
+        notes: 'Highlight event-level vs entity-level averages: 5 installments sum to 13,000 (2,600/payment) across only 4 distinct paying students.',
+        expectedRows: 1,
+        expectedValues: [[5, '13000.00', '2600.00']]
       },
       {
         id: 'sql-group-by',
@@ -721,19 +722,6 @@ COURSE.sections.push(
         ]
       },
       {
-        id: 'sql-full-join',
-        title: 'FULL OUTER JOIN emulation in MariaDB.',
-        lead: 'Combine two mirrored LEFT JOIN branches with UNION so unmatched students AND unmatched courses both appear together.',
-        type: 'query',
-        database: 'sql_lab',
-        sql: 'SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name\nFROM students s\nLEFT JOIN enrollments e ON e.student_id = s.id\nLEFT JOIN courses c ON c.id = e.course_id\nUNION\nSELECT s.id, s.name, c.id, c.course_name\nFROM courses c\nLEFT JOIN enrollments e ON e.course_id = c.id\nLEFT JOIN students s ON s.id = e.student_id\nORDER BY student_id, course_id;',
-        expected: '8 rows: all 5 matched enrollments + Meera + Dev + Cloud Security (with NULL student columns).',
-        question: 'Why use UNION instead of UNION ALL when emulating FULL OUTER JOIN?',
-        answer: 'UNION deduplicates the 5 matched rows that appear in both branches; UNION ALL would double-count matches.',
-        notes: 'Highlight that MariaDB lacks a single FULL OUTER JOIN keyword and uses this standard UNION idiom.',
-        expectedRows: 8
-      },
-      {
         id: 'sql-set-ops-diagram',
         title: 'Visual guide: UNION, UNION ALL, INTERSECT & EXCEPT.',
         lead: 'Click each set operator to review how vertical result stacking differs from horizontal JOIN matching.',
@@ -761,6 +749,19 @@ COURSE.sections.push(
           ['UNION (deduplicated: 4)', 'SELECT student_id FROM enrollments UNION SELECT student_id FROM payments ORDER BY student_id;'],
           ['UNION ALL (keeps repeats: 10)', 'SELECT student_id FROM enrollments UNION ALL SELECT student_id FROM payments ORDER BY student_id;']
         ]
+      },
+      {
+        id: 'sql-full-join',
+        title: 'FULL OUTER JOIN emulation in MariaDB (using UNION).',
+        lead: 'Now combine LEFT JOIN with the UNION set operator you just learned so unmatched students AND unmatched courses both appear together.',
+        type: 'query',
+        database: 'sql_lab',
+        sql: 'SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name\nFROM students s\nLEFT JOIN enrollments e ON e.student_id = s.id\nLEFT JOIN courses c ON c.id = e.course_id\nUNION\nSELECT s.id, s.name, c.id, c.course_name\nFROM courses c\nLEFT JOIN enrollments e ON e.course_id = c.id\nLEFT JOIN students s ON s.id = e.student_id\nORDER BY student_id, course_id;',
+        expected: '8 rows: all 5 matched enrollments + Meera + Dev + Cloud Security (with NULL student columns).',
+        question: 'Why use UNION instead of UNION ALL when emulating FULL OUTER JOIN?',
+        answer: 'UNION deduplicates the 5 matched rows that appear in both branches; UNION ALL would double-count matches.',
+        notes: 'Highlight that MariaDB lacks a single FULL OUTER JOIN keyword and uses this standard LEFT JOIN + UNION idiom.',
+        expectedRows: 8
       },
       {
         id: 'sql-join-check',
@@ -793,7 +794,7 @@ COURSE.sections.push(
         rows: [
           ['Scalar Subquery', 'Single value (1 row × 1 col) with =, >, <', 'Runs once; Error 1242 if >1 row returned'],
           ['Multi-Row Subquery', 'Single column list with IN, NOT IN, ANY, ALL', 'Runs once independently (watch NULL in NOT IN!)'],
-          ['Derived Table (FROM)', 'Virtual inline table in FROM (...) AS alias', 'Pre-aggregates results before joining (e.g. payments)'],
+          ['Derived Table (FROM)', 'Virtual inline table in FROM (...) AS alias', 'Pre-aggregates results before joining (practiced in Section 2.7)'],
           ['Correlated Subquery', 'Inner WHERE references outer table alias (e.g. s2.city = s.city)', 'Conceptually re-evaluated per outer candidate row'],
           ['EXISTS / NOT EXISTS', 'Boolean presence test returning TRUE as soon as 1 row matches', 'Short-circuits fast and ignores inner NULL traps']
         ],
@@ -895,15 +896,20 @@ COURSE.sections.push(
       {
         id: 'sql-create-view',
         title: 'Reusable joined & aggregated views.',
-        lead: 'Create course_roster (joined view) and inspect its rows via Inspect in SQL Studio.',
+        lead: 'Create both course_roster (joined view) and v_course_summary (complex GROUP BY + TEMPTABLE view), then inspect their rows.',
         type: 'query',
         database: 'sql_lab',
         sql: 'CREATE OR REPLACE SQL SECURITY INVOKER VIEW course_roster AS\nSELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name, e.score\nFROM students s\nJOIN enrollments e ON e.student_id=s.id\nJOIN courses c ON c.id=e.course_id;',
-        expected: 'View created. Clicking Inspect displays 5 rows from course_roster.',
+        expected: 'Preset 1 creates course_roster (5 rows via Inspect); Presets 2 & 3 create and query v_course_summary (4 courses with enrolled_count and avg_score).',
         question: 'Why is a GROUP BY view like v_course_summary completely non-updatable compared to a single-table view?',
         answer: 'An aggregated row collapses multiple students into COUNT(*) / AVG(score), so there is no unique 1-to-1 base row to receive an INSERT or UPDATE.',
-        notes: 'Point out SQL SECURITY INVOKER (caller privileges apply) vs DEFINER.',
-        inspectSql: 'SELECT * FROM course_roster ORDER BY student_id, course_id;'
+        notes: 'Run Preset 1 -> Inspect (course_roster), then Presets 2 & 3 (v_course_summary), and point out SQL SECURITY INVOKER vs DEFINER.',
+        inspectSql: 'SELECT * FROM course_roster ORDER BY student_id, course_id;',
+        presets: [
+          ['1. Joined view (course_roster)', 'CREATE OR REPLACE SQL SECURITY INVOKER VIEW course_roster AS SELECT s.id AS student_id, s.name, c.id AS course_id, c.course_name, e.score FROM students s JOIN enrollments e ON e.student_id=s.id JOIN courses c ON c.id=e.course_id;'],
+          ['2. Complex view (v_course_summary)', 'CREATE OR REPLACE ALGORITHM=TEMPTABLE SQL SECURITY INVOKER VIEW v_course_summary AS SELECT c.id AS course_id, c.course_name, COUNT(e.student_id) AS enrolled_count, ROUND(AVG(e.score), 1) AS avg_score FROM courses c LEFT JOIN enrollments e ON e.course_id = c.id GROUP BY c.id, c.course_name;'],
+          ['3. Query v_course_summary', 'SELECT * FROM v_course_summary ORDER BY course_id;']
+        ]
       },
       {
         id: 'sql-view-types',
@@ -939,7 +945,7 @@ COURSE.sections.push(
           ['3. SHOW FULL TABLES (BASE vs VIEW)', 'SHOW FULL TABLES;'],
           ['4. Drop v_delhi_students', 'DROP VIEW IF EXISTS v_delhi_students;']
         ],
-        expected: 'v_course_summary reports IS_UPDATABLE = NO (Complex GROUP BY + TEMPTABLE view), while v_delhi_students / course_roster report YES.',
+        expected: 'v_course_summary reports IS_UPDATABLE = NO (Complex GROUP BY + TEMPTABLE view), while course_roster (and v_delhi_students from the prior step) report YES.',
         question: 'What are MariaDB’s view ALGORITHM options (MERGE vs TEMPTABLE)?',
         answer: 'MERGE folds the view query directly into the caller’s SQL; TEMPTABLE materializes view rows into an internal temporary table first (required for GROUP BY/aggregates).',
         notes: 'Click Prepare if views were not created earlier; run presets 1–4 to inspect, alter, and clean up.'
@@ -956,7 +962,7 @@ COURSE.sections.push(
         ],
         correct: 0,
         feedback: 'Correlated NOT EXISTS clearly expresses non-existence without NULL traps.',
-        question: 'Student task: query v_course_summary (Prepare first if needed) or course_roster for scores >= 80.',
+        question: 'Student task: query course_roster for rows with score >= 80 (or query v_course_summary for courses with avg_score >= 80).',
         answer: 'SELECT name, course_name, score FROM course_roster WHERE score >= 80 ORDER BY student_id, course_id;',
         notes: 'Summarize subquery categories (scalar, IN, correlated, ANY/ALL) and view types (simple, complex, WITH CHECK OPTION).'
       }

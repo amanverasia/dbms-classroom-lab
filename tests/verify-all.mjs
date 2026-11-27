@@ -223,27 +223,29 @@ ok(await api('reset-practice', { database: 'classroom_practice' }), 'Reset lab_s
 const u1Guard = `verify_u1_${Date.now()}`;
 ok(await sql(`CREATE TABLE ${u1Guard} (id INT PRIMARY KEY)`, 'classroom_practice'), 'Create U1 guard table');
 ok(await sql(`INSERT INTO ${u1Guard} VALUES (99)`, 'classroom_practice'), 'Insert into U1 guard table');
+try {
+  for (const { step } of allSteps.filter(x => x.section.unit === 'u1' && x.step.type === 'query')) {
+    if (step.setup) {
+      ok(await api('prepare-practice', { database: 'classroom_practice', seed: Boolean(step.seedPractice) }), `Prepare ${step.id}`);
+    }
+    if (step.id === 'lab-constraints') {
+      for (const [pname, psql] of step.presets) {
+        fail(await sql(psql, 'classroom_practice'), undefined, `U1 constraint ${pname}`);
+      }
+    } else {
+      ok(await sql(step.sql, step.database), `U1 ${step.id}`);
+      for (const [pname, psql] of step.presets || []) {
+        ok(await sql(psql, step.database), `U1 preset ${pname}`);
+      }
+    }
+  }
 
-for (const { step } of allSteps.filter(x => x.section.unit === 'u1' && x.step.type === 'query')) {
-  if (step.setup) {
-    ok(await api('prepare-practice', { database: 'classroom_practice', seed: Boolean(step.seedPractice) }), `Prepare ${step.id}`);
-  }
-  if (step.id === 'lab-constraints') {
-    for (const [pname, psql] of step.presets) {
-      fail(await sql(psql, 'classroom_practice'), undefined, `U1 constraint ${pname}`);
-    }
-  } else {
-    ok(await sql(step.sql, step.database), `U1 ${step.id}`);
-    for (const [pname, psql] of step.presets || []) {
-      ok(await sql(psql, step.database), `U1 preset ${pname}`);
-    }
-  }
+  ok(await api('reset-practice', { database: 'classroom_practice' }), 'Reset lab_students after U1');
+  const guardCheckU1 = ok(await sql(`SELECT id FROM ${u1Guard}`, 'classroom_practice'), 'Guard table survived reset');
+  assert.equal(Number(guardCheckU1.rows[0][0]), 99);
+} finally {
+  await sql(`DROP TABLE IF EXISTS ${u1Guard}`, 'classroom_practice');
 }
-
-ok(await api('reset-practice', { database: 'classroom_practice' }), 'Reset lab_students after U1');
-const guardCheckU1 = ok(await sql(`SELECT id FROM ${u1Guard}`, 'classroom_practice'), 'Guard table survived reset');
-assert.equal(Number(guardCheckU1.rows[0][0]), 99);
-ok(await sql(`DROP TABLE ${u1Guard}`, 'classroom_practice'), 'Cleanup U1 guard');
 
 // Test U1 table-check auto-checker before and after creating lab_courses
 const u1ChallengeCheck = allSteps.find(x => x.step.id === 'lab-challenge').step.check;
@@ -279,72 +281,78 @@ const u2Guard = `verify_u2_${Date.now()}`;
 ok(await sql(`CREATE TABLE ${u2Guard} (id INT PRIMARY KEY)`, 'sql_lab'), 'Create U2 guard table');
 
 let u2Count = 0;
-for (const { step } of allSteps.filter(x => x.section.unit === 'u2')) {
-  if (step.type === 'challenge' && step.check) {
-    const chk = ok(
-      await api('check-answer', { sql: `-- student answer\n${step.check.expectedSql}`, database: step.database, checkSpec: step.check }),
-      `U2 auto-check ${step.id}`
-    );
-    assert.equal(chk.passed, true, chk.message);
-    if (step.id === 'sql-challenge-distinct-cities') {
-      const nonSelectChk = ok(await api('check-answer', { sql: 'DROP TABLE nonexistent_x;', database: step.database, checkSpec: step.check }), 'U2 query-match rejects non-SELECT');
-      assert.equal(nonSelectChk.passed, false);
-      const negChk = ok(await api('check-answer', { sql: 'SELECT 1 AS wrong_col;', database: step.database, checkSpec: step.check }), 'U2 negative check-answer');
-      assert.equal(negChk.passed, false);
-    }
-    continue;
-  }
-  if (step.type !== 'query') continue;
-
-  if (step.prepare) {
-    ok(await api(step.prepare, { database: 'sql_lab' }), `Prepare ${step.prepare} for ${step.id}`);
-  }
-  const res = await sql(step.sql, step.database, { persona: step.persona || 'console' });
-  u2Count++;
-
-  if (step.expectedError) {
-    fail(res, step.expectedError, `U2 expected error ${step.id}`);
-  } else {
-    const data = ok(res, `U2 query ${step.id}`);
-    if (step.expectedRows !== undefined) {
-      assert.equal(data.count, step.expectedRows, `U2 row count ${step.id}`);
-    }
-    if (step.expectedValues !== undefined) {
-      assert.deepEqual(
-        data.rows.map(r => r.map(String)),
-        step.expectedValues.map(r => r.map(String)),
-        `U2 exact values ${step.id}`
+let testedNegativeU2Check = false;
+try {
+  for (const { step } of allSteps.filter(x => x.section.unit === 'u2')) {
+    if (step.type === 'challenge' && step.check) {
+      const chk = ok(
+        await api('check-answer', { sql: `-- student answer\n${step.check.expectedSql}`, database: step.database, checkSpec: step.check }),
+        `U2 auto-check ${step.id}`
       );
+      assert.equal(chk.passed, true, chk.message);
+      if (step.id === 'sql-filter-practice') {
+        const nonSelectChk = ok(await api('check-answer', { sql: 'DROP TABLE nonexistent_x;', database: step.database, checkSpec: step.check }), 'U2 query-match rejects non-SELECT');
+        assert.equal(nonSelectChk.passed, false);
+        const negChk = ok(await api('check-answer', { sql: 'SELECT 1 AS wrong_col;', database: step.database, checkSpec: step.check }), 'U2 negative check-answer');
+        assert.equal(negChk.passed, false);
+        testedNegativeU2Check = true;
+      }
+      continue;
     }
-  }
+    if (step.type !== 'query') continue;
 
-  for (const [pname, psql] of step.presets || []) {
-    const pRes = await sql(psql, step.database, { persona: step.persona || 'console' });
+    if (step.prepare) {
+      ok(await api(step.prepare, { database: 'sql_lab' }), `Prepare ${step.prepare} for ${step.id}`);
+    }
+    const res = await sql(step.sql, step.database, { persona: step.persona || 'console' });
     u2Count++;
-    if (step.id === 'sql-constraint-errors' || (step.id === 'sql-view-types' && pname.includes('1369'))) {
-      fail(pRes, undefined, `U2 preset rejection ${pname}`);
+
+    if (step.expectedError) {
+      fail(res, step.expectedError, `U2 expected error ${step.id}`);
     } else {
-      ok(pRes, `U2 preset ${pname}`);
+      const data = ok(res, `U2 query ${step.id}`);
+      if (step.expectedRows !== undefined) {
+        assert.equal(data.count, step.expectedRows, `U2 row count ${step.id}`);
+      }
+      if (step.expectedValues !== undefined) {
+        assert.deepEqual(
+          data.rows.map(r => r.map(String)),
+          step.expectedValues.map(r => r.map(String)),
+          `U2 exact values ${step.id}`
+        );
+      }
+    }
+
+    for (const [pname, psql] of step.presets || []) {
+      const pRes = await sql(psql, step.database, { persona: step.persona || 'console' });
+      u2Count++;
+      if (step.id === 'sql-constraint-errors' || (step.id === 'sql-view-types' && pname.includes('1369'))) {
+        fail(pRes, undefined, `U2 preset rejection ${pname}`);
+      } else {
+        ok(pRes, `U2 preset ${pname}`);
+      }
+    }
+
+    if (step.inspectSql) {
+      ok(await sql(step.inspectSql, step.database, { persona: step.persona || 'console' }), `U2 inspect ${step.id}`);
+      u2Count++;
+    }
+
+    if (step.id === 'sql-missing-where') {
+      const emptyEdits = ok(await sql('SELECT COUNT(*) FROM student_edits', 'sql_lab'), 'Check empty student_edits');
+      assert.equal(Number(emptyEdits.rows[0][0]), 0);
+      ok(await api('reset-edit-copy', { database: 'sql_lab' }), 'Restore edit copy after missing WHERE');
+      const fullEdits = ok(await sql('SELECT COUNT(*) FROM student_edits', 'sql_lab'), 'Check restored student_edits');
+      assert.equal(Number(fullEdits.rows[0][0]), 6);
     }
   }
 
-  if (step.inspectSql) {
-    ok(await sql(step.inspectSql, step.database, { persona: step.persona || 'console' }), `U2 inspect ${step.id}`);
-    u2Count++;
-  }
-
-  if (step.id === 'sql-missing-where') {
-    const emptyEdits = ok(await sql('SELECT COUNT(*) FROM student_edits', 'sql_lab'), 'Check empty student_edits');
-    assert.equal(Number(emptyEdits.rows[0][0]), 0);
-    ok(await api('reset-edit-copy', { database: 'sql_lab' }), 'Restore edit copy after missing WHERE');
-    const fullEdits = ok(await sql('SELECT COUNT(*) FROM student_edits', 'sql_lab'), 'Check restored student_edits');
-    assert.equal(Number(fullEdits.rows[0][0]), 6);
-  }
+  assert.equal(testedNegativeU2Check, true, 'Expected negative U2 check-answer assertions to run');
+  ok(await api('reset-unit2', { database: 'sql_lab' }), 'Reset Unit 2 after rehearsal');
+  ok(await sql(`SELECT * FROM ${u2Guard}`, 'sql_lab'), 'U2 guard table survived reset');
+} finally {
+  await sql(`DROP TABLE IF EXISTS ${u2Guard}`, 'sql_lab');
 }
-
-ok(await api('reset-unit2', { database: 'sql_lab' }), 'Reset Unit 2 after rehearsal');
-ok(await sql(`SELECT * FROM ${u2Guard}`, 'sql_lab'), 'U2 guard table survived reset');
-ok(await sql(`DROP TABLE ${u2Guard}`, 'sql_lab'), 'Cleanup U2 guard');
 console.log(`PASS: Rehearsed ${u2Count} Unit 2 SQL statements/presets/inspections and all challenges.`);
 
 // 5. Unit 3 Complete Rehearsal
