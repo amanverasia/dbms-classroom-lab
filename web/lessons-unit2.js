@@ -6,36 +6,57 @@ COURSE.sections.push(
     steps: [
       {
         id: 'sql-start',
-        title: 'A question becomes an executable statement.',
-        lead: 'Unit 2 runs against sql_lab, a dataset deliberately crafted with missing values and unmatched rows.',
+        title: 'What is SQL & meet your sql_lab database.',
+        lead: 'SQL (Structured Query Language) is declarative: you tell MariaDB what table structure or data result you want, and the DBMS handles how to store and retrieve it. Unit 2 practices inside sql_lab, which has four connected tables with intentional edge cases.',
         type: 'cards',
         cards: [
-          ['Six students', 'Meera and Dev have zero enrollments. Dev has NULL age and NULL city.'],
-          ['Four courses', 'Cloud Security (104) has zero enrolled students.'],
-          ['Five enrollments & payments', 'Aman takes two courses; Zoya’s score is NULL; payments record multiple installments.']
+          ['students (6 rows)', 'Meera (id 4) and Dev (id 6) have no course enrollments yet; Dev has NULL age and NULL city.'],
+          ['courses (4 rows)', 'Four courses (101–104); Cloud Security (104) has zero enrolled students so far.'],
+          ['enrollments & payments', 'Five enrollments (one missing score = NULL) and five fee installments across students.']
         ],
-        question: 'Why include NULL scores and unmatched students/courses on purpose?',
-        answer: 'Edge cases make INNER vs OUTER joins, COUNT(*) vs COUNT(col), and NULL comparisons visibly obvious instead of hiding bugs.',
-        notes: 'Introduce sql_lab as distinct from Unit 1 college_demo; point out Reset Unit 2 in SQL Studio (and ⌘K) for repeatable demos.'
+        question: 'How is SQL different from a procedural language like Python or C?',
+        answer: 'SQL is declarative: you describe what table or result you want, and MariaDB’s Query Processor plans how to read or modify disk rows automatically.',
+        notes: 'Introduce sql_lab as separate from Unit 1 college_demo, and show Reset Unit 2 in SQL Studio / ⌘K so students know they can freely experiment.'
       },
       {
         id: 'sql-families',
-        title: 'SQL sub-languages: DDL, DML, DCL, and TCL.',
-        lead: 'Commands group by what they act upon: database structure, stored rows, permissions, or transactions.',
-        type: 'cards',
-        cards: [
-          ['DDL (Definition)', 'CREATE, ALTER, DROP, TRUNCATE define or reshape tables, views, and indexes.'],
-          ['DML (Manipulation & Query)', 'INSERT, UPDATE, DELETE modify data; SELECT retrieves rows (sometimes called DQL).'],
-          ['DCL & TCL (Control)', 'GRANT and REVOKE govern access (DCL); START TRANSACTION, COMMIT, ROLLBACK govern atomicity (TCL).']
+        title: 'The four SQL command families: DDL, DML, DCL, and TCL.',
+        lead: 'Every SQL statement belongs to a family based on whether it changes table structure, table rows, user permissions, or transaction boundaries.',
+        type: 'comparison',
+        columns: ['Family', 'Key Statements', 'What it acts on', 'Where we practice it'],
+        rows: [
+          ['DDL (Data Definition)', 'CREATE, ALTER, TRUNCATE, DROP', 'Table and database blueprints (structure)', 'Right here in Section 2.1'],
+          ['DML (Data Manipulation)', 'SELECT, INSERT, UPDATE, DELETE', 'Rows stored inside tables (data & queries)', 'Sections 2.2 – 2.7'],
+          ['DCL (Data Control)', 'GRANT, REVOKE', 'User permissions and access rules', 'Preview in 2.1 · Live user labs in Unit 3'],
+          ['TCL (Transaction Control)', 'START TRANSACTION, COMMIT, ROLLBACK', 'Grouping multi-step edits safely', 'Live concurrency labs in Unit 4']
         ],
-        question: 'Can ROLLBACK undo a DROP TABLE or CREATE TABLE statement in MariaDB?',
-        answer: 'No. MariaDB DDL statements (CREATE, ALTER, DROP, TRUNCATE) issue an implicit COMMIT before running.',
-        notes: 'Mention that DCL permissions are inspected shortly via SHOW GRANTS, and practiced live in Unit 3.'
+        question: 'Suppose a college creates a new exams table, inserts 50 scores, and gives a teaching assistant read-only access. Which SQL family handles each step?',
+        answer: 'Creating the table is DDL (CREATE), inserting scores is DML (INSERT), and giving access is DCL (GRANT).',
+        notes: 'Walk through the "Where we practice it" column so students see the full Unit 2 -> Unit 3 -> Unit 4 learning roadmap before writing code.'
+      },
+      {
+        id: 'sql-inspect',
+        title: 'Inspect the four Unit 2 tables first.',
+        lead: 'Use the presets on the left in SQL Studio to view students, courses, enrollments, and payments before creating or changing anything.',
+        type: 'query',
+        database: 'sql_lab',
+        sql: 'SELECT * FROM students ORDER BY id;',
+        expected: 'Six students including Dev (id 6) with NULL age and city.',
+        question: 'Click through all four presets. Comparing students and enrollments by ID, which two students have not enrolled in any course yet, and which student has NULL values?',
+        answer: 'Meera (id 4) and Dev (id 6) have no matching rows in enrollments, and Dev (id 6) has NULL for both age and city. Notice Cloud Security (id 104) also has zero enrollments.',
+        notes: 'Have students inspect IDs, text/date/decimal formatting, and NULL cells across all four tables before learning DDL data types.',
+        expectedRows: 6,
+        presets: [
+          ['Students', 'SELECT * FROM students ORDER BY id;'],
+          ['Courses', 'SELECT * FROM courses ORDER BY id;'],
+          ['Enrollments', 'SELECT * FROM enrollments ORDER BY student_id, course_id;'],
+          ['Payments', 'SELECT * FROM payments ORDER BY id;']
+        ]
       },
       {
         id: 'sql-datatypes-ddl-compare',
         title: 'MariaDB core data types & storage choices.',
-        lead: 'Choosing the right column type prevents storage waste, rounding errors, and broken comparisons before any query runs.',
+        lead: 'Notice the numbers, fees (6000.00), titles (\'Cybersecurity\'), and dates (\'2026-07-01\') you just inspected—before writing CREATE TABLE, pick each column’s exact data type.',
         type: 'comparison',
         columns: ['Column Type', 'Syntax & Storage', 'When to choose it'],
         rows: [
@@ -47,31 +68,12 @@ COURSE.sections.push(
         ],
         question: 'Why does DECIMAL(9,2) prevent silent ₹0.01 rounding bugs compared to FLOAT or DOUBLE?',
         answer: 'FLOAT/DOUBLE use binary floating-point approximations (0.1 + 0.2 != 0.3 exactly), whereas DECIMAL stores exact base-10 digits.',
-        notes: 'Walk through each type quickly during Unit 2 theory lecture before moving into live tables and DDL.'
-      },
-      {
-        id: 'sql-inspect',
-        title: 'Inspect the four Unit 2 tables.',
-        lead: 'Load the presets on the left into SQL Studio to inspect students, courses, enrollments, and payments before querying.',
-        type: 'query',
-        database: 'sql_lab',
-        sql: 'SELECT * FROM students ORDER BY id;',
-        expected: 'Six students including Dev (id 6) with NULL age and city.',
-        question: 'Which two students will vanish when we INNER JOIN students to enrollments?',
-        answer: 'Meera (4) and Dev (6) have no matching rows in enrollments.',
-        notes: 'Step through all four presets briefly so students recognize student IDs 1–6 and course IDs 101–104.',
-        expectedRows: 6,
-        presets: [
-          ['Students', 'SELECT * FROM students ORDER BY id;'],
-          ['Courses', 'SELECT * FROM courses ORDER BY id;'],
-          ['Enrollments', 'SELECT * FROM enrollments ORDER BY student_id, course_id;'],
-          ['Payments', 'SELECT * FROM payments ORDER BY id;']
-        ]
+        notes: 'Connect each row to columns students just saw (id, fee, email, joined_on) right before they run CREATE TABLE.'
       },
       {
         id: 'sql-create',
-        title: 'Define a table with a foreign key.',
-        lead: 'Create course_notes referencing courses(id), then click Inspect in SQL Studio to view DESCRIBE metadata.',
+        title: 'DDL Practical 1: create a table with CREATE TABLE.',
+        lead: 'Define a new table using CREATE TABLE name (column type rules, ...). Create course_notes linked to courses(id), then click Inspect in SQL Studio to run DESCRIBE course_notes;.',
         type: 'query',
         database: 'sql_lab',
         sql: 'CREATE TABLE course_notes (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  course_id INT NOT NULL,\n  note VARCHAR(200) NOT NULL,\n  created_on DATE NOT NULL,\n  FOREIGN KEY (course_id) REFERENCES courses(id)\n);',
@@ -83,8 +85,8 @@ COURSE.sections.push(
       },
       {
         id: 'sql-alter',
-        title: 'Alter structure after creation (ADD, MODIFY, DROP).',
-        lead: 'Use ALTER TABLE to add a column with a constraint, widen a column type, or drop a column.',
+        title: 'DDL Practical 2: reshape a table with ALTER TABLE.',
+        lead: 'Tables evolve after creation. Use ALTER TABLE with ADD COLUMN, MODIFY COLUMN, or DROP COLUMN (DEFAULT 1 fills omitted values; CHECK restricts valid numbers), then click Inspect after each preset.',
         type: 'query',
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
@@ -103,25 +105,25 @@ COURSE.sections.push(
       {
         id: 'sql-delete-truncate-drop-theory',
         title: 'Theory compare: DELETE vs TRUNCATE vs DROP.',
-        lead: 'One of the highest-frequency exam questions: how do these three removal commands differ?',
+        lead: 'Before running TRUNCATE and DROP live, compare all three removal commands side by side (we will practice DELETE row filtering in Section 2.2).',
         type: 'comparison',
-        columns: ['Property', 'DELETE', 'TRUNCATE', 'DROP'],
+        columns: ['Property', 'DELETE (DML)', 'TRUNCATE (DDL)', 'DROP (DDL)'],
         rows: [
-          ['SQL Category', 'DML (Data Manipulation)', 'DDL (Data Definition)', 'DDL (Data Definition)'],
-          ['WHERE clause?', 'Yes (removes selected rows)', 'No (always removes ALL rows)', 'No (removes entire table object)'],
-          ['Table schema kept?', 'Yes', 'Yes (empty table remains)', 'No (definition & indexes gone)'],
-          ['AUTO_INCREMENT reset?', 'No (continues from last counter)', 'Yes (resets back to 1)', 'N/A (table no longer exists)'],
-          ['Rollback inside TX?', 'Yes (if autocommit=0 / START TX)', 'No (implicit COMMIT in MariaDB)', 'No (implicit COMMIT in MariaDB)'],
-          ['Speed on big tables', 'Row-by-row undo logging (slower)', 'Deallocates pages directly (very fast)', 'Removes metadata + .ibd file fast']
+          ['What it removes', 'Selected rows (or all rows if WHERE omitted)', 'All rows at once', 'Entire table (rows + column definitions)'],
+          ['WHERE clause allowed?', 'Yes', 'No', 'No'],
+          ['Table structure kept?', 'Yes', 'Yes (empty table remains)', 'No (table vanishes from SHOW TABLES)'],
+          ['AUTO_INCREMENT reset?', 'No (continues from previous counter)', 'Yes (resets counter back to 1)', 'N/A (table no longer exists)'],
+          ['Undoable with ROLLBACK?', 'Yes (inside a transaction)', 'No (commits immediately in MariaDB)', 'No (commits immediately in MariaDB)'],
+          ['Where we practice it', 'Section 2.2 (next)', 'Next step (live demo)', 'Next step (live demo)']
         ],
-        question: 'If you accidentally run TRUNCATE TABLE fee_ledger inside a transaction, can ROLLBACK bring the rows back in MariaDB?',
-        answer: 'No! TRUNCATE is DDL in MariaDB and triggers an implicit COMMIT, so only a backup + binary log restore can recover the data.',
-        notes: 'Pause on this slide in theory lecture—students routinely assume TRUNCATE can be rolled back in MariaDB (unlike PostgreSQL).'
+        question: 'Suppose you want to clear all test rows from course_notes and restart id numbering at 1 while keeping the table ready for new notes tomorrow. Which command fits: DELETE, TRUNCATE, or DROP?',
+        answer: 'TRUNCATE TABLE course_notes; — it clears all rows and resets AUTO_INCREMENT to 1 while keeping the empty table intact. (DROP removes the entire table definition; DELETE keeps the old counter.)',
+        notes: 'Pause on this comparison in theory lecture—keep the focus on structure retention, WHERE filtering, AUTO_INCREMENT reset, and immediate DDL commit.'
       },
       {
         id: 'sql-drop-truncate',
-        title: 'Live demo: TRUNCATE vs DROP.',
-        lead: 'Seed a note row, empty the table fast with TRUNCATE, then remove its definition altogether with DROP.',
+        title: 'DDL Practical 3: run TRUNCATE and DROP live.',
+        lead: 'Seed a note row, empty the table cleanly with TRUNCATE TABLE, then remove its definition altogether with DROP TABLE.',
         type: 'query',
         database: 'sql_lab',
         prepare: 'prepare-course-notes',
@@ -139,8 +141,8 @@ COURSE.sections.push(
       },
       {
         id: 'sql-dcl-preview',
-        title: 'DCL permissions: GRANT, REVOKE & SHOW GRANTS.',
-        lead: 'DCL commands (GRANT / REVOKE) define and remove what each user account is permitted to do.',
+        title: 'DCL Basics: GRANT, REVOKE & SHOW GRANTS.',
+        lead: "DCL controls who can read or modify tables using two symmetric statements: GRANT <privileges> ON <db.table> TO '<user>'@'<host>'; and REVOKE <privileges> ON <db.table> FROM '<user>'@'<host>';. Inspect real server grants below (we will create users and run live GRANT/REVOKE in Unit 3).",
         type: 'query',
         database: 'college_demo',
         persona: 'dba_lab',
@@ -153,7 +155,7 @@ COURSE.sections.push(
         expected: 'Shows exact GRANT statements stored in MariaDB for each account.',
         question: 'Write the DCL syntax to grant INSERT on sql_lab.* to reporting, then remove it again.',
         answer: "GRANT INSERT ON sql_lab.* TO 'reporting'@'%';\nREVOKE INSERT ON sql_lab.* FROM 'reporting'@'%';",
-        notes: 'Explain the symmetric syntax (GRANT ... TO vs REVOKE ... FROM); live account changes run in Unit 3.5.'
+        notes: 'Explain the symmetric syntax (GRANT ... TO vs REVOKE ... FROM); live account creation and permission changes run in Unit 3.5.'
       },
       {
         id: 'sql-ddl-check',
@@ -307,7 +309,7 @@ COURSE.sections.push(
       {
         id: 'sql-execution-order-diagram',
         title: 'How MariaDB executes SELECT (Written vs Logical Order).',
-        lead: 'Click each stage on the right to see why WHERE behaves differently from HAVING and ORDER BY.',
+        lead: 'Here is the roadmap of how MariaDB evaluates a SELECT query. In this section we focus on FROM, WHERE, SELECT, and ORDER BY (and we will add GROUP BY and HAVING next in Section 2.4).',
         type: 'diagram',
         diagram: 'sql-execution-order',
         question: 'Why does SELECT age + 1 AS next_age FROM students WHERE next_age > 21 fail with Unknown column?',
@@ -373,7 +375,7 @@ COURSE.sections.push(
         type: 'query',
         database: 'sql_lab',
         sql: "SELECT name, city FROM students\nWHERE city IN ('Delhi', 'Kochi') ORDER BY id;",
-        expected: 'IN returns 3 students (Aman, Kabir in Delhi; Zoya in Kochi). BETWEEN returns 3 ages (20–23). NOT IN (20, NULL) returns 0 rows!',
+        expected: 'IN returns 3 students (Aman, Kabir in Delhi; Meera in Kochi). BETWEEN returns 3 ages (20–23). NOT IN (20, NULL) returns 0 rows!',
         question: 'Why does age NOT IN (20, NULL) return zero rows—even for Aman whose age is 25?',
         answer: 'NOT IN (20, NULL) means (age <> 20 AND age <> NULL). Because 25 <> NULL evaluates to UNKNOWN, the AND becomes UNKNOWN and WHERE drops every row.',
         notes: 'Run all 3 presets! Preset 3 demonstrates one of SQL’s trickiest real-world NULL pitfalls live.',
@@ -474,13 +476,13 @@ COURSE.sections.push(
         options: [
           'SELECT * FROM enrollments LIMIT 3',
           'SELECT * FROM enrollments WHERE score IS NOT NULL ORDER BY score DESC, student_id ASC, course_id ASC LIMIT 3',
-          'SELECT * FROM enrollments WHERE score = MAX(score)'
+          'SELECT * FROM enrollments ORDER BY score DESC LIMIT 3'
         ],
         correct: 1,
         feedback: 'Filter NULLs, sort descending, add composite PK tie-breakers, then apply LIMIT 3.',
-        question: 'Student task: explain why WHERE score = MAX(score) causes an error.',
-        answer: 'Aggregate functions like MAX() cannot appear directly in WHERE because WHERE evaluates row-by-row before aggregation.',
-        notes: 'Smooth transition into Section 2.4 Aggregation.'
+        question: 'Student task: why does adding WHERE score IS NOT NULL and primary-key tie-breakers (student_id ASC, course_id ASC) matter before LIMIT 3?',
+        answer: 'WHERE score IS NOT NULL excludes ungraded NULL rows cleanly regardless of NULL sort placement, and adding the composite primary key breaks score ties deterministically so Top-3 results stay consistent.',
+        notes: 'Keep Section 2.3 focused cleanly on filtering, NULL handling, sorting, and LIMIT before introducing aggregates in Section 2.4.'
       }
     ]
   },
@@ -495,7 +497,7 @@ COURSE.sections.push(
         type: 'comparison',
         columns: ['Concept / Clause', 'Rule & Behavior', 'Exam Tip'],
         rows: [
-          ['COUNT(*) vs COUNT(col)', 'COUNT(*) counts all rows; COUNT(col) counts non-NULL values; COUNT(DISTINCT col) counts unique values', 'Use COUNT(child.id) in LEFT JOINs to show 0'],
+          ['COUNT(*) vs COUNT(col)', 'COUNT(*) counts all rows; COUNT(col) counts non-NULL values; COUNT(DISTINCT col) counts unique values', 'COUNT(score) skips NULL scores; COUNT(*) counts every row'],
           ['SUM / AVG / MIN / MAX', 'Ignore NULL inputs; AVG divides by non-NULL count only', 'All-NULL input returns NULL (except COUNT = 0)'],
           ['WHERE', 'Filters individual rows BEFORE grouping; cannot use aggregates', 'Faster: shrinks rows before grouping work'],
           ['HAVING', 'Filters aggregated groups AFTER GROUP BY; can use aggregates', 'Keep row-only checks in WHERE, not HAVING'],
@@ -561,19 +563,6 @@ COURSE.sections.push(
         answer: 'FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY -> LIMIT.',
         notes: 'Reinforce that WHERE filters rows while HAVING filters finished groups.',
         expectedRows: 2
-      },
-      {
-        id: 'sql-empty-course-count',
-        title: 'Preview: count joined child keys, never COUNT(*).',
-        lead: 'Cloud Security has 0 enrollments (previewing LEFT JOIN from Section 2.5). Compare COUNT(e.student_id) vs COUNT(*).',
-        type: 'query',
-        database: 'sql_lab',
-        sql: 'SELECT c.course_name, COUNT(e.student_id) AS enrolled\nFROM courses c LEFT JOIN enrollments e ON e.course_id = c.id\nGROUP BY c.id, c.course_name ORDER BY c.id;',
-        expected: 'Cybersecurity: 2, Database Security: 2, Python for Security: 1, Cloud Security: 0.',
-        question: 'What wrong answer would COUNT(*) display for Cloud Security?',
-        answer: 'COUNT(*) counts the NULL-extended LEFT JOIN row and falsely reports 1 enrolled student instead of 0.',
-        notes: 'Edit COUNT(e.student_id) to COUNT(*) briefly in SQL Studio to show Cloud Security jumping to 1.',
-        expectedRows: 4
       },
       {
         id: 'sql-group-practice',
@@ -686,6 +675,19 @@ COURSE.sections.push(
           ['Condition in ON (4 rows)', 'SELECT c.course_name, e.student_id, e.score FROM courses c LEFT JOIN enrollments e ON e.course_id=c.id AND e.score>=80 ORDER BY c.id,e.student_id;'],
           ['Condition in WHERE (2 rows)', 'SELECT c.course_name, e.student_id, e.score FROM courses c LEFT JOIN enrollments e ON e.course_id=c.id WHERE e.score>=80 ORDER BY c.id,e.student_id;']
         ]
+      },
+      {
+        id: 'sql-empty-course-count',
+        title: 'Combine LEFT JOIN + GROUP BY: count child keys, never COUNT(*).',
+        lead: 'Now combine Section 2.4 aggregation with LEFT JOIN: Cloud Security has 0 enrollments—compare COUNT(e.student_id) vs COUNT(*).',
+        type: 'query',
+        database: 'sql_lab',
+        sql: 'SELECT c.course_name, COUNT(e.student_id) AS enrolled\nFROM courses c LEFT JOIN enrollments e ON e.course_id = c.id\nGROUP BY c.id, c.course_name ORDER BY c.id;',
+        expected: 'Cybersecurity: 2, Database Security: 2, Python for Security: 1, Cloud Security: 0.',
+        question: 'What wrong answer would COUNT(*) display for Cloud Security?',
+        answer: 'COUNT(*) counts the NULL-extended LEFT JOIN row and falsely reports 1 enrolled student instead of 0.',
+        notes: 'Edit COUNT(e.student_id) to COUNT(*) briefly in SQL Studio right after seeing LEFT JOIN padding so students observe Cloud Security falsely jumping to 1.',
+        expectedRows: 4
       },
       {
         id: 'sql-three-tables',
